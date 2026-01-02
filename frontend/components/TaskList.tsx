@@ -18,10 +18,11 @@ export default function TaskList() {
       const completedFilter =
         filter === 'all' ? undefined : filter === 'completed' ? true : false
 
-      const fetchedTasks = await apiClient.listTasks({
-        completed: completedFilter,
-        limit: 100,
-      })
+      const fetchedTasks = await apiClient.listTasks(
+        completedFilter === undefined
+          ? { limit: 100 }
+          : { completed: completedFilter, limit: 100 }
+      )
 
       setTasks(fetchedTasks)
     } catch (err) {
