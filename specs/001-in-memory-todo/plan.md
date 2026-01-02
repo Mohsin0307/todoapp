@@ -1,0 +1,1348 @@
+# Implementation Plan: In-Memory Todo Console Application
+
+**Branch**: `001-in-memory-todo` | **Date**: 2025-12-30 | **Spec**: [spec.md](./spec.md)
+
+## Summary
+
+Build a Python console-based Todo application with 5 core features (add, view, update, delete, mark complete) using in-memory storage, following strict spec-driven development with a multi-agent architecture.
+
+## Technical Context
+
+- **Language/Version**: Python 3.8+ (standard library only - no external dependencies)
+- **Primary Dependencies**: None (stdlib dataclasses, typing for type hints)
+- **Storage**: In-memory dictionary for task storage (no persistence)
+- **Testing**: pytest (will be added as dev dependency)
+- **Target Platform**: Cross-platform (Windows, macOS, Linux) console applications
+- **Project Type**: Single console application
+- **Performance Goals**: <100ms per operation, support 1000+ tasks
+- **Constraints**: Standard library only, console-only interface, in-memory storage
+- **Scale/Scope**: Single-user, single-session, educational/prototype scope
+
+## Constitution Check
+
+### I. Spec-Driven Development First: ✅ PASS
+- All code will be generated from the specification at `specs/001-in-memory-todo/spec.md`
+- Manual coding is prohibited; any corrections will be made by refining specifications
+- Complete spec.md exists and defines all functional requirements before implementation
+
+### II. Phase-Based Development Discipline: ✅ PASS
+- This is Phase I (In-Memory Console Application) implementation
+- No features from future phases (persistence, APIs, containerization) are included
+- Scope strictly limited to console-based CRUD operations with in-memory storage
+- Future phases explicitly documented in spec.md "Future Enhancements" section
+
+### III. Documentation as Core Artifact: ✅ PASS
+- Specification includes clear intent (user scenarios), constraints (technical/business), and acceptance criteria
+- All documentation written in Markdown
+- Documentation structure includes spec.md, plan.md (this document), and will include tasks.md
+- Additional artifacts planned: research.md, data-model.md, quickstart.md, contracts/cli-commands.md
+
+### IV. Reusable Intelligence & Agent Skills: ✅ PASS
+- Multi-agent workflow defined with specialized agents (Architect, Developer, Tester, Reviewer)
+- Workflow patterns will be evaluated for skill creation after 3+ repetitions
+- Agent handoff contracts explicitly defined in "Multi-Agent Workflow" section
+
+### V. AI Agent Governance: ✅ PASS
+- Each agent has documented scope and responsibilities
+- Agent outputs are spec-compliant and deterministic
+- Clear handoff contracts between agents defined
+- Agents operate within defined boundaries (no out-of-scope actions)
+
+### VI. Code Quality Standards: ✅ PASS
+- PEP 8 compliance required for all generated code
+- Single-responsibility principle enforced (separation: models, managers, CLI)
+- Type hints required for all functions and methods
+- Error handling with user-friendly messages mandatory
+- Input validation at all system boundaries
+
+### VII. Security & Privacy: ✅ PASS
+- No secrets, API keys, or credentials required for this phase
+- Input validation prevents injection and malformed data
+- No external data sources or network access in this phase
+- Future phases will use .env for secrets management
+
+### VIII. Cloud-Native Readiness: ⚠️ DEFERRED (WITH JUSTIFICATION)
+- Phase I is console-only with in-memory storage by design
+- Containerization and Kubernetes deployment planned for Phase II+ (see spec.md "Future Enhancements")
+- Application architecture uses modular design that will support containerization when needed
+- 12-factor principles (environment-driven config, stateless design) will be introduced in persistence phase
+
+**Justification**: Phase I focuses on core functionality validation before cloud deployment. The modular architecture (models, managers, CLI separation) ensures easy transition to containerized deployment in future phases.
+
+### IX. Performance & Token Efficiency: ✅ PASS
+- Performance budgets defined: <100ms per operation, support 1000+ tasks
+- Specifications are concise with no redundant context
+- Modular architecture allows targeted code generation (update models without regenerating CLI)
+- Multi-agent workflow minimizes token consumption through specialized, focused agents
+
+## Project Structure
+
+### Documentation (this feature)
+
+```text
+specs/001-in-memory-todo/
+├── spec.md                    # Feature specification (DONE)
+├── plan.md                    # This implementation plan
+├── research.md                # Phase 0: Technology decisions & data structure analysis
+├── data-model.md              # Phase 1: Entity models & relationships
+├── quickstart.md              # Phase 1: Quick reference for users
+├── contracts/                 # Phase 1: API contracts
+│   └── cli-commands.md        # Command interface specifications
+└── tasks.md                   # Phase 2: Generated by /sp.tasks
+```
+
+### Source Code (repository root)
+
+```text
+src/
+├── __init__.py
+├── models/
+│   ├── __init__.py
+│   └── task.py               # Task dataclass with validation
+├── managers/
+│   ├── __init__.py
+│   └── task_manager.py       # TaskManager class (CRUD operations, ID generation)
+├── cli/
+│   ├── __init__.py
+│   ├── interface.py          # CLI menu, display formatting, user interaction
+│   └── validators.py         # Input validation (description length, ID format)
+└── main.py                   # Application entry point, main loop
+
+tests/
+├── __init__.py
+├── test_task.py              # Task model unit tests (validation, state transitions)
+├── test_task_manager.py      # TaskManager unit tests (CRUD, ID generation, edge cases)
+├── test_cli.py               # CLI unit tests (menu display, input handling, validation)
+└── test_integration.py       # End-to-end tests (user scenarios from spec.md)
+
+README.md                     # Setup instructions, usage guide, examples
+CLAUDE.md                     # Project rules and development process (EXISTS)
+pyproject.toml                # UV project configuration, dev dependencies (pytest)
+.gitignore                    # Python, IDE, environment files
+```
+
+**Structure Decision**: Single project structure selected. This is a console application with clear separation of concerns (models, business logic, CLI). The three-layer architecture (models → managers → CLI) provides modularity while maintaining simplicity appropriate for Phase I scope.
+
+### File Responsibility Matrix
+
+| File | Responsibility | Dependencies | Input/Output |
+|------|---------------|--------------|--------------|
+| `src/models/task.py` | Task entity definition, validation | dataclasses, typing | Input: id, description, status → Output: Task instance |
+| `src/managers/task_manager.py` | CRUD operations, ID generation, task storage | Task model | Input: task data → Output: success/error, task lists |
+| `src/cli/validators.py` | Input validation (description, ID) | None | Input: user strings → Output: validated data or errors |
+| `src/cli/interface.py` | Menu display, user prompts, formatting | validators, TaskManager | Input: user choices → Output: formatted console output |
+| `src/main.py` | Application entry, main loop, exit | interface, TaskManager | Input: none → Output: application execution |
+
+## Phase 0: Research & Technology Decisions
+
+### Decision 1: Data Structures for Task Storage
+
+**Options Considered**:
+1. **Dictionary (dict) with ID as key** → SELECTED
+2. List with linear search
+3. OrderedDict for insertion order preservation
+4. Custom linked list implementation
+
+**Analysis**:
+- **Dictionary**: O(1) lookup, insertion, deletion by ID. Natural fit for ID-based CRUD. No ordering guarantee but not required by spec.
+- **List**: O(n) lookup by ID requires iteration. O(1) append but deletion requires reindexing.
+- **OrderedDict**: Overkill for this use case. Dictionary insertion order is preserved in Python 3.7+ by default.
+- **Custom linked list**: Unnecessary complexity for in-memory storage with no performance benefit.
+
+**Decision**: Use `dict[int, Task]` for task storage.
+
+**Rationale**:
+- Meets performance requirement of <100ms operations (O(1) access)
+- Simplifies ID-based operations (get, update, delete)
+- Standard library, no external dependencies
+- Insertion order preserved in Python 3.7+, suitable for "view all" operations
+- Memory-efficient for 1000+ tasks
+
+**Trade-offs**:
+- PRO: Fast lookups, simple implementation, stdlib only
+- CON: No built-in ordering by creation time (mitigated: insertion order preserved)
+- CON: Memory overhead vs. list (acceptable for scope of 1000 tasks)
+
+### Decision 2: ID Generation Strategy
+
+**Options Considered**:
+1. **Auto-incrementing counter** → SELECTED
+2. UUID
+3. Timestamp-based ID
+4. Hash-based ID
+
+**Analysis**:
+- **Auto-incrementing**: Simple, predictable, user-friendly (1, 2, 3...). Meets spec requirement "sequential integer ID starting from 1".
+- **UUID**: Overkill for single-user, single-session. Not user-friendly in console.
+- **Timestamp**: Not guaranteed unique, complex to display, unnecessary precision.
+- **Hash**: Collision risk, non-sequential, violates spec requirement.
+
+**Decision**: Use auto-incrementing integer counter starting at 1.
+
+**Rationale**:
+- Explicitly required by spec (FR-001)
+- User-friendly for console interaction
+- Simple to implement (single counter variable)
+- No collision risk in single-session scope
+
+**Trade-offs**:
+- PRO: Simple, spec-compliant, user-friendly
+- CON: IDs not universally unique (acceptable: single-session, in-memory)
+- CON: ID reuse after deletion if counter doesn't persist (mitigation: counter never decrements)
+
+### Decision 3: Task Status Representation
+
+**Options Considered**:
+1. **String literals ("pending", "completed")** → SELECTED
+2. Boolean (is_completed)
+3. Enum class (TaskStatus.PENDING, TaskStatus.COMPLETED)
+4. Integer codes (0, 1)
+
+**Analysis**:
+- **String literals**: Clear, readable, extensible for future statuses. Matches spec language.
+- **Boolean**: Simple but semantically limited. Doesn't read as "status" (is_completed is state, not status).
+- **Enum**: Type-safe, prevents typos. Requires additional import. Potentially more complex for spec-driven generation.
+- **Integer codes**: Not self-documenting, requires mapping for display.
+
+**Decision**: Use string literals "pending" and "completed".
+
+**Rationale**:
+- Matches spec.md terminology exactly (FR-003, FR-004)
+- Self-documenting in code and output
+- Simple validation (check against set of valid values)
+- Extensible to future statuses ("in_progress", "archived") without code changes
+- No additional dependencies
+
+**Trade-offs**:
+- PRO: Readable, spec-aligned, simple validation
+- CON: No compile-time type checking (mitigated: validation in Task model)
+- CON: Slightly more memory than boolean (negligible for 1000 tasks)
+
+### Decision 4: Input Validation Strategy
+
+**Options Considered**:
+1. **Separate validators module** → SELECTED
+2. Inline validation in CLI
+3. Validation methods in Task model
+4. Decorator-based validation
+
+**Analysis**:
+- **Separate module**: Single responsibility, reusable, testable in isolation.
+- **Inline validation**: Quick but creates tight coupling, hard to test.
+- **Model validation**: Mixes data representation with UI concerns.
+- **Decorator-based**: Over-engineered for simple validation needs.
+
+**Decision**: Create `src/cli/validators.py` with validation functions.
+
+**Rationale**:
+- Separation of concerns (validation vs. business logic vs. display)
+- Reusable across CLI commands
+- Independently testable
+- Clear error message generation in one place
+
+**Validation Rules**:
+- Description: Non-empty, non-whitespace-only, max 200 characters (FR-002, FR-005)
+- Task ID: Integer, positive, non-zero (user-facing validation)
+- Menu choice: Integer, within valid range (1-6)
+
+### Decision 5: Error Handling Approach
+
+**Options Considered**:
+1. **Exception-based with custom exceptions** → SELECTED
+2. Return codes (0 = success, -1 = error)
+3. Result objects (Ok/Err pattern)
+4. Silent failure with logging
+
+**Analysis**:
+- **Custom exceptions**: Pythonic, clear error propagation, separates happy path from error path.
+- **Return codes**: C-style, error-prone (easy to ignore), mixes success/error logic.
+- **Result objects**: Functional style, requires custom implementation or library.
+- **Silent failure**: Unacceptable (violates spec requirement for clear error messages).
+
+**Decision**: Use custom exception classes with try/except handling.
+
+**Custom Exceptions**:
+- `TaskNotFoundError`: Raised when task ID doesn't exist (update, delete, mark complete)
+- `InvalidDescriptionError`: Raised when description validation fails
+- `InvalidInputError`: Raised for general input validation failures
+
+**Rationale**:
+- Clear separation of error cases
+- Pythonic and idiomatic
+- Enables specific error messages (spec requirement FR-012)
+- Stack traces available for debugging without exposing to user
+
+### Decision 6: Testing Framework
+
+**Options Considered**:
+1. **pytest** → SELECTED
+2. unittest (stdlib)
+3. nose2
+4. No testing framework
+
+**Analysis**:
+- **pytest**: Industry standard, simple syntax, powerful fixtures, excellent assertions.
+- **unittest**: Stdlib (no dependency) but verbose, class-based, less readable.
+- **nose2**: Less popular, smaller ecosystem than pytest.
+- **No testing**: Violates Constitution principle VI (code quality standards).
+
+**Decision**: Use pytest as dev dependency.
+
+**Rationale**:
+- Best-in-class Python testing framework
+- Simple, readable test syntax (minimal boilerplate)
+- Powerful parameterization for edge case testing
+- Excellent failure reports
+- Dev dependency (not required for runtime) - acceptable per constraint
+
+**Test Organization**:
+- Unit tests for each module (models, managers, validators)
+- Integration tests for end-to-end user scenarios
+- Tests organized by user story priority (P1, P2, P3, P4)
+
+## Phase 1: Design Artifacts
+
+### Data Model Specification
+
+**Entity: Task**
+
+```python
+@dataclass
+class Task:
+    """
+    Represents a single todo item.
+
+    Attributes:
+        id: Unique sequential integer identifier (assigned by TaskManager)
+        description: Task description (1-200 characters, non-empty)
+        status: Current status ("pending" or "completed")
+
+    Invariants:
+        - id must be positive integer > 0
+        - description must be non-empty string after stripping whitespace
+        - description must be <= 200 characters
+        - status must be one of {"pending", "completed"}
+    """
+    id: int
+    description: str
+    status: str = "pending"
+
+    def __post_init__(self) -> None:
+        """Validate task attributes after initialization."""
+        # Validation logic will be implemented here
+```
+
+**Relationships**:
+- Task entities have no relationships to other entities (flat structure)
+- Tasks are managed by TaskManager (composition, not inheritance)
+
+**State Transitions**:
+```
+[Created] → status="pending" (default)
+    ↓
+[Mark Complete] → status="completed"
+    ↓
+[Mark Complete Again] → status="completed" (idempotent, no error)
+```
+
+### Component Architecture
+
+**1. Models Layer** (`src/models/`)
+- **Purpose**: Data representation and validation
+- **Components**: `Task` dataclass
+- **Responsibilities**:
+  - Define Task entity structure
+  - Validate task attributes on initialization
+  - Provide immutable data representation
+- **No dependencies**: Pure data models
+
+**2. Business Logic Layer** (`src/managers/`)
+- **Purpose**: Task operations and state management
+- **Components**: `TaskManager` class
+- **Responsibilities**:
+  - Task storage (in-memory dictionary)
+  - ID generation (auto-incrementing counter)
+  - CRUD operations (create, read, update, delete)
+  - Task retrieval and querying
+- **Dependencies**: `Task` model
+- **State**:
+  - `_tasks: dict[int, Task]` (task storage)
+  - `_next_id: int` (ID counter)
+
+**3. Interface Layer** (`src/cli/`)
+- **Purpose**: User interaction and presentation
+- **Components**:
+  - `interface.py`: Menu display, user prompts, output formatting
+  - `validators.py`: Input validation and sanitization
+- **Responsibilities**:
+  - Display menu and prompts
+  - Capture and validate user input
+  - Format and display task lists
+  - Display error and success messages
+- **Dependencies**: `TaskManager`, `validators`
+
+**4. Application Entry** (`src/main.py`)
+- **Purpose**: Application lifecycle management
+- **Responsibilities**:
+  - Initialize TaskManager
+  - Run main application loop
+  - Handle graceful shutdown
+  - Display welcome/goodbye messages
+- **Dependencies**: `interface`, `TaskManager`
+
+### API Contracts
+
+**TaskManager Public Interface**:
+
+```python
+class TaskManager:
+    """Manages in-memory task storage and operations."""
+
+    def add_task(self, description: str) -> Task:
+        """
+        Add a new task with the given description.
+
+        Args:
+            description: Task description (1-200 chars, non-empty)
+
+        Returns:
+            Created Task instance with assigned ID
+
+        Raises:
+            InvalidDescriptionError: If description is empty or >200 chars
+        """
+
+    def get_all_tasks(self) -> list[Task]:
+        """
+        Retrieve all tasks in insertion order.
+
+        Returns:
+            List of all Task instances (empty list if no tasks)
+        """
+
+    def get_task(self, task_id: int) -> Task:
+        """
+        Retrieve a specific task by ID.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            Task instance with matching ID
+
+        Raises:
+            TaskNotFoundError: If task_id doesn't exist
+        """
+
+    def update_task(self, task_id: int, description: str) -> Task:
+        """
+        Update task description.
+
+        Args:
+            task_id: Task identifier
+            description: New description (1-200 chars, non-empty)
+
+        Returns:
+            Updated Task instance
+
+        Raises:
+            TaskNotFoundError: If task_id doesn't exist
+            InvalidDescriptionError: If description is invalid
+        """
+
+    def delete_task(self, task_id: int) -> None:
+        """
+        Delete a task by ID.
+
+        Args:
+            task_id: Task identifier
+
+        Raises:
+            TaskNotFoundError: If task_id doesn't exist
+        """
+
+    def mark_complete(self, task_id: int) -> Task:
+        """
+        Mark a task as completed.
+
+        Args:
+            task_id: Task identifier
+
+        Returns:
+            Updated Task instance with status="completed"
+
+        Raises:
+            TaskNotFoundError: If task_id doesn't exist
+
+        Note:
+            Idempotent - marking an already completed task has no effect
+        """
+
+    def task_count(self) -> int:
+        """
+        Get total number of tasks.
+
+        Returns:
+            Number of tasks in storage
+        """
+```
+
+**CLI Interface Contract**:
+
+```python
+def display_menu() -> None:
+    """Display main menu options (1-6)."""
+
+def get_menu_choice() -> int:
+    """
+    Prompt user for menu selection.
+
+    Returns:
+        Valid menu choice (1-6)
+
+    Note:
+        Loops until valid input received
+    """
+
+def add_task_flow(manager: TaskManager) -> None:
+    """
+    Execute add task workflow.
+
+    Steps:
+        1. Prompt for description
+        2. Validate input
+        3. Call manager.add_task()
+        4. Display success message with task ID
+        5. Handle and display errors
+    """
+
+def view_tasks_flow(manager: TaskManager) -> None:
+    """
+    Execute view tasks workflow.
+
+    Steps:
+        1. Call manager.get_all_tasks()
+        2. Format and display task list
+        3. Display "empty list" message if no tasks
+    """
+
+def update_task_flow(manager: TaskManager) -> None:
+    """
+    Execute update task workflow.
+
+    Steps:
+        1. Prompt for task ID
+        2. Validate ID format
+        3. Prompt for new description
+        4. Validate description
+        5. Call manager.update_task()
+        6. Display success message
+        7. Handle and display errors (not found, invalid input)
+    """
+
+def delete_task_flow(manager: TaskManager) -> None:
+    """Execute delete task workflow (similar to update)."""
+
+def mark_complete_flow(manager: TaskManager) -> None:
+    """Execute mark complete workflow (similar to update)."""
+
+def run_application() -> None:
+    """
+    Main application loop.
+
+    Flow:
+        1. Display welcome message
+        2. Initialize TaskManager
+        3. Loop:
+            a. Display menu
+            b. Get user choice
+            c. Execute corresponding workflow
+            d. Exit if choice is 6
+        4. Display goodbye message
+    """
+```
+
+**Validators Interface**:
+
+```python
+def validate_description(description: str) -> str:
+    """
+    Validate and sanitize task description.
+
+    Args:
+        description: Raw user input
+
+    Returns:
+        Stripped description
+
+    Raises:
+        InvalidDescriptionError: If empty, whitespace-only, or >200 chars
+    """
+
+def validate_task_id(id_input: str) -> int:
+    """
+    Validate and parse task ID.
+
+    Args:
+        id_input: Raw user input (expected to be integer string)
+
+    Returns:
+        Parsed integer ID
+
+    Raises:
+        InvalidInputError: If not a valid integer or <= 0
+    """
+
+def validate_menu_choice(choice_input: str, min_choice: int, max_choice: int) -> int:
+    """
+    Validate menu selection.
+
+    Args:
+        choice_input: Raw user input
+        min_choice: Minimum valid choice (inclusive)
+        max_choice: Maximum valid choice (inclusive)
+
+    Returns:
+        Parsed integer choice
+
+    Raises:
+        InvalidInputError: If not integer or out of range
+    """
+```
+
+### User Interaction Flows
+
+**Flow 1: Add Task (P1)**
+```
+1. User selects "1" from menu
+2. System prompts: "Enter task description: "
+3. User enters: "Buy groceries"
+4. System validates: length <= 200, non-empty
+5. System creates Task(id=1, description="Buy groceries", status="pending")
+6. System displays: "✓ Task added successfully (ID: 1)"
+7. Return to menu
+```
+
+**Flow 2: View All Tasks (P1)**
+```
+1. User selects "2" from menu
+2. System retrieves all tasks from storage
+3. System displays formatted list:
+
+   Your Tasks:
+   -----------
+   ID | Description           | Status
+   ---|----------------------|----------
+   1  | Buy groceries        | pending
+   2  | Write report         | completed
+
+4. Return to menu
+
+(If empty: "No tasks found. Start by adding a task!")
+```
+
+**Flow 3: Mark Complete (P2)**
+```
+1. User selects "3" from menu
+2. System prompts: "Enter task ID to mark complete: "
+3. User enters: "1"
+4. System validates: ID is integer, ID exists in storage
+5. System updates Task(id=1, status="completed")
+6. System displays: "✓ Task 1 marked as completed"
+7. Return to menu
+
+(Error case: ID not found)
+2. User enters: "999"
+3. System displays: "✗ Error: Task with ID 999 not found"
+4. Return to menu
+```
+
+**Flow 4: Update Task (P3)**
+```
+1. User selects "4" from menu
+2. System prompts: "Enter task ID to update: "
+3. User enters: "1"
+4. System validates: ID exists
+5. System prompts: "Enter new description: "
+6. User enters: "Buy organic groceries"
+7. System validates: description length <= 200, non-empty
+8. System updates Task(id=1, description="Buy organic groceries")
+9. System displays: "✓ Task 1 updated successfully"
+10. Return to menu
+```
+
+**Flow 5: Delete Task (P4)**
+```
+1. User selects "5" from menu
+2. System prompts: "Enter task ID to delete: "
+3. User enters: "1"
+4. System validates: ID exists
+5. System removes task from storage
+6. System displays: "✓ Task 1 deleted successfully"
+7. Return to menu
+```
+
+**Flow 6: Exit Application**
+```
+1. User selects "6" from menu
+2. System displays: "Goodbye! Your tasks will not be saved."
+3. Application terminates
+```
+
+### Error Handling Matrix
+
+| Error Condition | Error Type | User Message | Recovery Action |
+|----------------|------------|--------------|-----------------|
+| Empty description | InvalidDescriptionError | "Error: Task description cannot be empty" | Re-prompt for description |
+| Description >200 chars | InvalidDescriptionError | "Error: Description too long (max 200 characters)" | Re-prompt for description |
+| Whitespace-only description | InvalidDescriptionError | "Error: Description cannot be only whitespace" | Re-prompt for description |
+| Task ID not found | TaskNotFoundError | "Error: Task with ID {id} not found" | Return to menu |
+| Invalid ID format (non-integer) | InvalidInputError | "Error: Task ID must be a number" | Re-prompt for ID |
+| Negative/zero ID | InvalidInputError | "Error: Task ID must be a positive number" | Re-prompt for ID |
+| Invalid menu choice | InvalidInputError | "Error: Please enter a number between 1 and 6" | Re-prompt for choice |
+| Unexpected error | Exception | "Error: An unexpected error occurred. Please try again." | Return to menu, log error |
+
+### Display Formatting Specifications
+
+**Menu Display**:
+```
+========================================
+         TODO LIST APPLICATION
+========================================
+
+1. Add a new task
+2. View all tasks
+3. Mark task as complete
+4. Update task description
+5. Delete a task
+6. Exit
+
+Enter your choice (1-6): _
+```
+
+**Task List Display (with tasks)**:
+```
+Your Tasks:
+========================================
+ID | Description                        | Status
+---|------------------------------------|-----------
+1  | Buy groceries                      | pending
+2  | Write quarterly report             | completed
+3  | Schedule dentist appointment       | pending
+========================================
+Total tasks: 3
+```
+
+**Task List Display (empty)**:
+```
+Your Tasks:
+========================================
+No tasks found. Start by adding a task!
+========================================
+```
+
+**Success Messages**:
+- Add: `✓ Task added successfully (ID: {id})`
+- Update: `✓ Task {id} updated successfully`
+- Delete: `✓ Task {id} deleted successfully`
+- Mark Complete: `✓ Task {id} marked as completed`
+
+**Error Message Format**:
+```
+✗ Error: {specific error message}
+```
+
+**Welcome Message**:
+```
+========================================
+    Welcome to TODO List Application
+========================================
+Track your tasks easily!
+```
+
+**Goodbye Message**:
+```
+========================================
+         Goodbye!
+========================================
+Your tasks will not be saved.
+Thank you for using TODO List Application.
+```
+
+## Multi-Agent Workflow
+
+### Agent Roles and Responsibilities
+
+**1. Architect Agent** (Planning Phase)
+- **Input**: spec.md, constitution.md
+- **Scope**: Technology decisions, data structures, component architecture
+- **Outputs**:
+  - research.md (technology decisions with rationale)
+  - data-model.md (entity definitions, relationships)
+  - contracts/cli-commands.md (API contracts)
+- **Handoff Criteria**: All architectural decisions documented with trade-offs
+- **Success Metrics**: Constitution check passes, all decisions justified
+
+**2. Developer Agent** (Implementation Phase)
+- **Input**: plan.md, tasks.md, contracts
+- **Scope**: Code generation for models, managers, CLI, main
+- **Outputs**:
+  - src/models/task.py
+  - src/managers/task_manager.py
+  - src/cli/validators.py
+  - src/cli/interface.py
+  - src/main.py
+- **Handoff Criteria**: All code generated, type hints added, PEP 8 compliant
+- **Success Metrics**: Code matches contracts exactly, no manual edits
+
+**3. Tester Agent** (Validation Phase)
+- **Input**: Generated code, spec.md acceptance scenarios
+- **Scope**: Test creation for unit tests and integration tests
+- **Outputs**:
+  - tests/test_task.py
+  - tests/test_task_manager.py
+  - tests/test_cli.py
+  - tests/test_integration.py
+- **Handoff Criteria**: All acceptance scenarios have corresponding tests
+- **Success Metrics**: 100% scenario coverage, tests pass
+
+**4. Reviewer Agent** (Quality Assurance Phase)
+- **Input**: All code, tests, spec.md
+- **Scope**: Spec compliance review, code quality check, Constitution validation
+- **Outputs**:
+  - Review report with PASS/FAIL per requirement
+  - List of deviations (if any) with justification
+- **Handoff Criteria**: All FR requirements verified, code quality validated
+- **Success Metrics**: Zero spec violations, all tests passing
+
+### Agent Handoff Contract
+
+**Architect → Developer**:
+```yaml
+Input Artifacts:
+  - specs/001-in-memory-todo/research.md
+  - specs/001-in-memory-todo/data-model.md
+  - specs/001-in-memory-todo/contracts/cli-commands.md
+
+Completion Criteria:
+  - All technology decisions documented with rationale
+  - Data model fully specified with validation rules
+  - API contracts defined with inputs, outputs, errors
+  - No placeholders or TODOs in artifacts
+
+Quality Gates:
+  - Constitution check passes (all 9 principles)
+  - No ambiguities in contracts
+  - Error handling strategy defined
+```
+
+**Developer → Tester**:
+```yaml
+Input Artifacts:
+  - src/models/task.py
+  - src/managers/task_manager.py
+  - src/cli/validators.py
+  - src/cli/interface.py
+  - src/main.py
+
+Completion Criteria:
+  - All files generated with no manual edits
+  - Type hints on all functions/methods
+  - Docstrings on all public interfaces
+  - PEP 8 compliance
+  - No syntax errors
+
+Quality Gates:
+  - Code matches API contracts
+  - All error types defined and used
+  - Input validation implemented
+  - No hardcoded values (except constants)
+```
+
+**Tester → Reviewer**:
+```yaml
+Input Artifacts:
+  - tests/test_task.py
+  - tests/test_task_manager.py
+  - tests/test_cli.py
+  - tests/test_integration.py
+
+Completion Criteria:
+  - All acceptance scenarios have tests
+  - All edge cases from spec.md tested
+  - Tests organized by user story priority
+  - All tests passing
+
+Quality Gates:
+  - 100% coverage of acceptance criteria
+  - Edge cases explicitly tested
+  - Error conditions tested
+  - Integration tests cover user flows
+```
+
+**Reviewer → Complete**:
+```yaml
+Input Artifacts:
+  - All code and tests
+  - spec.md
+  - plan.md
+
+Completion Criteria:
+  - All FR requirements verified as implemented
+  - Code quality standards met
+  - All tests passing
+  - No spec violations
+
+Quality Gates:
+  - Constitution compliance verified
+  - Performance requirements met (<100ms operations)
+  - Error handling validated
+  - User experience matches spec flows
+```
+
+### Workflow Execution Sequence
+
+```
+Phase 0: Research (Architect Agent)
+├─ Analyze spec requirements
+├─ Evaluate data structure options
+├─ Document technology decisions
+└─ Output: research.md
+
+Phase 1: Design (Architect Agent)
+├─ Define data models
+├─ Design component architecture
+├─ Specify API contracts
+├─ Define error handling strategy
+└─ Output: data-model.md, contracts/cli-commands.md
+
+Phase 2: Task Breakdown (/sp.tasks)
+├─ Generate actionable tasks from plan
+├─ Organize by user story priority
+├─ Define dependencies
+└─ Output: tasks.md
+
+Phase 3: Implementation (Developer Agent)
+├─ Generate models (Task)
+├─ Generate business logic (TaskManager)
+├─ Generate validators
+├─ Generate CLI interface
+├─ Generate main entry point
+└─ Output: src/** (all .py files)
+
+Phase 4: Testing (Tester Agent)
+├─ Generate unit tests (models, managers, validators)
+├─ Generate CLI tests
+├─ Generate integration tests
+└─ Output: tests/** (all test files)
+
+Phase 5: Validation (Tester Agent)
+├─ Run all tests
+├─ Verify acceptance criteria
+└─ Output: Test results
+
+Phase 6: Review (Reviewer Agent)
+├─ Verify spec compliance
+├─ Check code quality
+├─ Validate Constitution adherence
+└─ Output: Review report, PASS/FAIL
+
+Phase 7: Commit (/sp.git.commit_pr)
+├─ Commit all artifacts
+├─ Create pull request
+└─ Output: PR with spec references
+```
+
+## Risk Analysis & Mitigation
+
+### Technical Risks
+
+**Risk 1: Performance Degradation with Large Task Counts**
+- **Severity**: Medium
+- **Probability**: Low
+- **Impact**: Operations exceed 100ms threshold with 1000+ tasks
+- **Root Cause**: Inefficient data structure or algorithm complexity
+- **Mitigation**:
+  - Use dict for O(1) lookups (already decided)
+  - Avoid unnecessary iterations in get_all_tasks()
+  - Test with 1000+ tasks during validation phase
+- **Contingency**: If performance issues occur, profile and optimize hot paths
+- **Detection**: Integration tests with large task counts
+
+**Risk 2: Input Validation Bypass**
+- **Severity**: High
+- **Probability**: Low
+- **Impact**: Invalid data enters storage, causing crashes or unexpected behavior
+- **Root Cause**: Incomplete validation or missing edge cases
+- **Mitigation**:
+  - Centralize validation in validators.py
+  - Validate at multiple layers (CLI input, model initialization)
+  - Comprehensive edge case testing
+- **Contingency**: Add defensive programming in TaskManager methods
+- **Detection**: Unit tests for all edge cases, fuzzing with random inputs
+
+**Risk 3: ID Collision After Deletion**
+- **Severity**: Medium
+- **Probability**: Low
+- **Impact**: User confusion if IDs are reused
+- **Root Cause**: Counter reset or decrement after deletion
+- **Mitigation**:
+  - Never decrement _next_id counter
+  - Document that IDs are not reused even after deletion
+  - Test deletion + addition sequences
+- **Contingency**: None needed (intended behavior)
+- **Detection**: Integration tests for ID sequencing
+
+### Implementation Risks
+
+**Risk 4: Spec Misinterpretation by Generator**
+- **Severity**: High
+- **Probability**: Medium
+- **Impact**: Generated code doesn't match requirements
+- **Root Cause**: Ambiguous specifications or unclear contracts
+- **Mitigation**:
+  - Extremely detailed API contracts with examples
+  - Acceptance criteria with given/when/then format
+  - Reviewer agent verifies spec compliance
+- **Contingency**: Refine spec and regenerate code (no manual edits)
+- **Detection**: Reviewer agent, test failures
+
+**Risk 5: Missing Edge Cases**
+- **Severity**: Medium
+- **Probability**: Medium
+- **Impact**: Unexpected behavior or crashes in untested scenarios
+- **Root Cause**: Incomplete edge case identification in spec
+- **Mitigation**:
+  - Explicit edge case list in spec.md (already present)
+  - Edge case testing in test suite
+  - Tester agent validates all edge cases
+- **Contingency**: Add edge case to spec, regenerate tests
+- **Detection**: Manual testing, user feedback
+
+### Process Risks
+
+**Risk 6: Constitution Principle Violations**
+- **Severity**: High
+- **Probability**: Low
+- **Impact**: Project fails to meet hackathon requirements
+- **Root Cause**: Skipping Constitution check or ignoring violations
+- **Mitigation**:
+  - Mandatory Constitution check in plan.md
+  - Explicit PASS/FAIL for each principle
+  - Justify any deferrals with rationale
+- **Contingency**: Revise plan to address violations
+- **Detection**: Constitution check section review
+
+**Risk 7: Agent Scope Creep**
+- **Severity**: Medium
+- **Probability**: Medium
+- **Impact**: Agents generate out-of-scope features or future-phase code
+- **Root Cause**: Unclear agent boundaries or overeager generation
+- **Mitigation**:
+  - Explicit agent scope definitions
+  - Clear handoff contracts
+  - Reviewer agent checks for scope violations
+- **Contingency**: Regenerate with stricter scope constraints
+- **Detection**: Code review, spec compliance check
+
+## Timeline & Milestones
+
+### Phase 0: Research (Architect Agent) - 1 hour
+- [ ] Analyze spec requirements
+- [ ] Evaluate data structure options (dict vs list vs custom)
+- [ ] Evaluate ID generation strategies
+- [ ] Evaluate task status representation
+- [ ] Evaluate error handling approaches
+- [ ] Document all decisions with rationale
+- **Deliverable**: research.md
+- **Acceptance**: All 6 decisions documented with trade-offs
+
+### Phase 1: Design (Architect Agent) - 2 hours
+- [ ] Define Task entity with validation rules
+- [ ] Design TaskManager API with contracts
+- [ ] Design CLI interface contracts
+- [ ] Design validators interface
+- [ ] Define user interaction flows
+- [ ] Define error handling matrix
+- [ ] Define display formatting specifications
+- **Deliverables**: data-model.md, contracts/cli-commands.md, quickstart.md
+- **Acceptance**: All contracts complete, no ambiguities
+
+### Phase 2: Task Breakdown (/sp.tasks) - 30 minutes
+- [ ] Generate tasks.md from plan.md
+- [ ] Organize tasks by user story priority (P1 → P4)
+- [ ] Define task dependencies
+- [ ] Identify parallel opportunities
+- **Deliverable**: tasks.md
+- **Acceptance**: All implementation tasks defined with acceptance criteria
+
+### Phase 3: Implementation (Developer Agent) - 3 hours
+- [ ] Generate src/models/task.py
+- [ ] Generate src/managers/task_manager.py
+- [ ] Generate src/cli/validators.py
+- [ ] Generate src/cli/interface.py
+- [ ] Generate src/main.py
+- [ ] Generate pyproject.toml with pytest dependency
+- [ ] Generate README.md with setup/usage instructions
+- **Deliverables**: All source code files
+- **Acceptance**: All code generated, PEP 8 compliant, type hints present
+
+### Phase 4: Testing (Tester Agent) - 2 hours
+- [ ] Generate tests/test_task.py (model validation)
+- [ ] Generate tests/test_task_manager.py (CRUD operations)
+- [ ] Generate tests/test_cli.py (input validation, display)
+- [ ] Generate tests/test_integration.py (user scenarios)
+- **Deliverables**: All test files
+- **Acceptance**: All acceptance scenarios have tests, edge cases covered
+
+### Phase 5: Validation (Tester Agent) - 1 hour
+- [ ] Run all unit tests
+- [ ] Run all integration tests
+- [ ] Verify performance with 1000+ tasks
+- [ ] Test all edge cases from spec.md
+- **Deliverable**: Test results report
+- **Acceptance**: All tests passing, performance requirements met
+
+### Phase 6: Review (Reviewer Agent) - 1 hour
+- [ ] Verify all FR requirements implemented
+- [ ] Check code quality (PEP 8, type hints, docstrings)
+- [ ] Validate Constitution compliance
+- [ ] Verify error handling completeness
+- [ ] Check user experience against spec flows
+- **Deliverable**: Review report with PASS/FAIL per requirement
+- **Acceptance**: Zero spec violations, all quality gates passed
+
+### Phase 7: Commit & PR (/sp.git.commit_pr) - 30 minutes
+- [ ] Commit all code files
+- [ ] Commit all test files
+- [ ] Commit all documentation
+- [ ] Create pull request with spec references
+- **Deliverable**: Pull request
+- **Acceptance**: All artifacts committed, PR description complete
+
+**Total Estimated Time**: 11 hours
+
+## Success Metrics & Acceptance Criteria
+
+### Functional Completeness
+- [ ] All 14 FR requirements from spec.md implemented
+- [ ] All 4 user stories with acceptance scenarios validated
+- [ ] All 10 edge cases handled gracefully
+- [ ] All CRUD operations functional (add, view, update, delete, mark complete)
+
+### Code Quality
+- [ ] PEP 8 compliance: 100% (no style violations)
+- [ ] Type hints: 100% coverage on functions/methods
+- [ ] Docstrings: 100% coverage on public interfaces
+- [ ] No manual code edits (all generated from specs)
+- [ ] Single-responsibility principle: Each module/class has one clear purpose
+
+### Testing
+- [ ] Unit test coverage: All public methods tested
+- [ ] Integration test coverage: All user scenarios tested
+- [ ] Edge case coverage: All 10 edge cases from spec.md tested
+- [ ] Test pass rate: 100%
+- [ ] Performance tests: Operations complete <100ms with 1000+ tasks
+
+### Specification Compliance
+- [ ] All acceptance scenarios pass
+- [ ] User interaction flows match spec exactly
+- [ ] Error messages match spec requirements (clear, actionable)
+- [ ] Display formatting matches spec (menu, task list, messages)
+- [ ] Input validation matches spec rules (length, format, non-empty)
+
+### Constitution Compliance
+- [ ] Spec-Driven Development: No manual code edits
+- [ ] Phase Discipline: No future-phase features present
+- [ ] Documentation: All artifacts complete and clear
+- [ ] Security: Input validation prevents injection/corruption
+- [ ] Code Quality: Production-ready standards met
+- [ ] Agent Governance: All agents operated within scope
+- [ ] Performance: <100ms operations, 1000+ task support
+
+### User Experience
+- [ ] Menu is intuitive and clearly labeled
+- [ ] Error messages are helpful and actionable
+- [ ] Success confirmations are clear
+- [ ] Empty state messages are friendly
+- [ ] Welcome/goodbye messages are professional
+- [ ] No crashes on any input type
+
+### Performance
+- [ ] Menu display: <50ms
+- [ ] Add task: <100ms
+- [ ] View all tasks (1000 tasks): <100ms
+- [ ] Update task: <100ms
+- [ ] Delete task: <100ms
+- [ ] Mark complete: <100ms
+- [ ] Application startup: <500ms
+
+## Dependencies & Prerequisites
+
+### Development Environment
+- Python 3.8 or higher installed
+- uv package manager installed (for dependency management)
+- Git installed (for version control)
+- Terminal/console access
+
+### Development Dependencies (pyproject.toml)
+```toml
+[project]
+name = "todo-app"
+version = "0.1.0"
+description = "In-memory console-based todo application"
+requires-python = ">=3.8"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_backend"
+```
+
+### Runtime Dependencies
+- None (standard library only)
+
+### External Systems
+- None (no database, APIs, or external services)
+
+## Deployment & Operations
+
+### Deployment Strategy
+- **Phase I**: Local execution only
+- **Installation**: Clone repository, run `uv sync --dev` to install pytest
+- **Execution**: Run `python src/main.py` from project root
+- **No build step**: Pure Python, no compilation required
+
+### Operational Considerations
+- **Logging**: Not required for Phase I (console output only)
+- **Monitoring**: Not required (single-user, local execution)
+- **Graceful Shutdown**: Exit menu option (6) displays goodbye message
+- **Data Loss Warning**: Goodbye message reminds user that data is not persisted
+
+### Future Phases
+- **Phase II**: File-based persistence (JSON)
+- **Phase III**: REST API with Flask/FastAPI
+- **Phase IV**: Containerization (Docker)
+- **Phase V**: Kubernetes deployment
+
+## Architectural Decision Records (ADRs)
+
+### ADR Detection
+
+The following architectural decisions meet the significance criteria (impact, alternatives, scope) and warrant ADR documentation:
+
+**1. Data Structure for Task Storage (dict vs list)**
+- **Impact**: Affects all CRUD operations, performance characteristics
+- **Alternatives**: dict, list, OrderedDict, custom data structure
+- **Scope**: Cross-cutting (affects models, managers, performance)
+- **Suggest**: 📋 Architectural decision detected: Task storage data structure selection — Document reasoning and trade-offs? Run `/sp.adr task-storage-data-structure`
+
+**2. ID Generation Strategy (auto-increment vs UUID)**
+- **Impact**: Affects user experience, data model, future scalability
+- **Alternatives**: Auto-increment, UUID, timestamp, hash
+- **Scope**: Cross-cutting (affects models, managers, user interface)
+- **Suggest**: 📋 Architectural decision detected: Task ID generation strategy — Document reasoning and trade-offs? Run `/sp.adr task-id-generation`
+
+**3. Error Handling Approach (exceptions vs return codes)**
+- **Impact**: Affects code structure, error propagation, user experience
+- **Alternatives**: Custom exceptions, return codes, Result objects, silent failure
+- **Scope**: Cross-cutting (affects all layers: models, managers, CLI)
+- **Suggest**: 📋 Architectural decision detected: Error handling mechanism — Document reasoning and trade-offs? Run `/sp.adr error-handling-approach`
+
+**Note**: ADR creation requires user consent. These suggestions will be presented after plan approval.
+
+## Non-Functional Requirements Validation
+
+### Performance Requirements
+| Requirement | Target | Validation Method | Status |
+|-------------|--------|-------------------|--------|
+| Menu display response | <50ms | Performance test with timer | Pending |
+| CRUD operations | <100ms | Performance test with 1000 tasks | Pending |
+| Large task count support | 1000+ tasks | Integration test with bulk data | Pending |
+
+### Usability Requirements
+| Requirement | Validation Method | Status |
+|-------------|-------------------|--------|
+| Clear menu labels (1-6) | Manual review of interface.py | Pending |
+| Consistent error format | Review all error messages | Pending |
+| Success confirmations | Review all success messages | Pending |
+| Visual separation | Review display formatting | Pending |
+
+### Reliability Requirements
+| Requirement | Validation Method | Status |
+|-------------|-------------------|--------|
+| No crashes on invalid input | Fuzz testing with random inputs | Pending |
+| Exception handling | Review try/except coverage | Pending |
+| Data integrity | Integration tests with edge cases | Pending |
+| Graceful exit | Manual testing of exit flow | Pending |
+
+### Maintainability Requirements
+| Requirement | Validation Method | Status |
+|-------------|-------------------|--------|
+| Function/method separation | Review module structure | Pending |
+| Single responsibility | Review class/function design | Pending |
+| Descriptive naming | Code review | Pending |
+| PEP 8 compliance | Run linter (flake8/ruff) | Pending |
+| Inline comments | Review complex logic sections | Pending |
+
+## Complexity Tracking
+
+*No Constitution violations requiring justification*
+
+## Appendix A: Glossary
+
+- **CRUD**: Create, Read, Update, Delete - the four basic operations for data management
+- **Dataclass**: Python decorator that auto-generates special methods for classes
+- **FR**: Functional Requirement - a specific behavior the system must implement
+- **Idempotent**: An operation that produces the same result regardless of how many times it's executed
+- **In-Memory Storage**: Data stored in RAM during execution, lost when application exits
+- **P1/P2/P3/P4**: Priority levels for user stories (P1 = highest priority)
+- **PEP 8**: Python Enhancement Proposal 8 - official Python style guide
+- **Sequential ID**: Auto-incrementing integer identifier (1, 2, 3, ...)
+- **Type Hint**: Python syntax for indicating expected types of variables/parameters
+- **Validation**: Process of checking that input meets specified requirements
+
+## Appendix B: References
+
+- **Spec Document**: [specs/001-in-memory-todo/spec.md](./spec.md)
+- **Constitution**: [.specify/memory/constitution.md](../../.specify/memory/constitution.md)
+- **Python Documentation**: https://docs.python.org/3/
+- **PEP 8 Style Guide**: https://pep8.org/
+- **Python Dataclasses**: https://docs.python.org/3/library/dataclasses.html
+- **Python Type Hints**: https://docs.python.org/3/library/typing.html
+
+## Appendix C: Future Enhancements Roadmap
+
+### Phase II: Persistence
+- File-based storage (JSON format)
+- Load/save operations on startup/shutdown
+- Data migration from in-memory format
+
+### Phase III: Web API
+- REST API with Flask or FastAPI
+- JSON request/response format
+- Authentication and authorization
+- API documentation (OpenAPI/Swagger)
+
+### Phase IV: Containerization
+- Dockerfile for application
+- Docker Compose for local development
+- Environment-based configuration
+
+### Phase V: Cloud Deployment
+- Kubernetes manifests
+- Horizontal pod autoscaling
+- Cloud-native database (PostgreSQL)
+- CI/CD pipeline (GitHub Actions)
+
+---
+
+**Document Version**: 1.0
+**Last Updated**: 2025-12-30
+**Next Review**: After tasks.md generation
+**Approval Status**: Pending user review

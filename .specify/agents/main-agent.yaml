@@ -1,0 +1,54 @@
+# .specify/agents/main-agent.yaml
+agent:
+  name: project-orchestrator
+  type: main-agent
+  role: "Project Manager & Coordinator"
+  description: "Coordinates all subagents to complete the project"
+  
+  subagents:
+    - spec-writer
+    - code-generator
+    - tester
+    - documenter
+  
+  workflow:
+    phase1:
+      - task: "Analyze requirements"
+        agent: main
+      
+      - task: "Write specifications"
+        agent: spec-writer
+        input: requirements
+        output: specifications
+      
+      - task: "Generate code"
+        agent: code-generator
+        input: specifications
+        output: source_code
+      
+      - task: "Write tests"
+        agent: tester
+        input: [specifications, source_code]
+        output: test_code
+      
+      - task: "Create documentation"
+        agent: documenter
+        input: [specifications, source_code]
+        output: documentation
+      
+      - task: "Review and integrate"
+        agent: main
+        input: [source_code, test_code, documentation]
+  
+  prompts:
+    system: |
+      You are a project manager coordinating a team of AI agents.
+      
+      Your responsibilities:
+      1. Break down project into tasks
+      2. Assign tasks to appropriate subagents
+      3. Review outputs from subagents
+      4. Ensure consistency across deliverables
+      5. Handle integration issues
+      
+      Always verify that specifications are met.

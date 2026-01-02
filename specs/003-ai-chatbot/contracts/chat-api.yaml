@@ -1,0 +1,257 @@
+openapi: 3.0.3
+info:
+  title: Chat API - Phase III
+  version: 1.0.0
+  description: |
+    AI-powered chatbot API for task management through natural language conversation.
+    Integrates with OpenAI Agents SDK and MCP tools for stateless task operations.
+  contact:
+    name: API Support
+    url: https://github.com/yourusername/hackathon-todo
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.yourdomain.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/{user_id}/chat:
+    post:
+      summary: Send message to AI chatbot
+      description: |
+        Send a natural language message to the AI chatbot. The agent will interpret the message,
+        decide which MCP tools to invoke, and return a friendly response.
+
+        **Stateless Design**: Each request loads conversation history from database.
+        **Authentication**: JWT token required. user_id must match authenticated user.
+        **Context**: Last 50 messages included in conversation context.
+      operationId: sendChatMessage
+      tags:
+        - Chat
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Authenticated user ID (must match JWT token claim)
+          schema:
+            type: string
+            example: "user_abc123"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                conversation_id:
+                  type: integer
+                  nullable: true
+                  description: |
+                    Optional conversation ID. If omitted, creates new conversation.
+                    If provided, continues existing conversation.
+                  example: 42
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  description: User message in natural language
+                  example: "Add a task to buy groceries"
+            examples:
+              newConversation:
+                summary: Start new conversation
+                value:
+                  message: "Add a task to buy groceries"
+              continueConversation:
+                summary: Continue existing conversation
+                value:
+                  conversation_id: 42
+                  message: "What's on my list?"
+      responses:
+        '200':
+          description: Successful response from AI agent
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - conversation_id
+                  - response
+                  - tool_calls
+                properties:
+                  conversation_id:
+                    type: integer
+                    description: ID of the conversation (created or existing)
+                    example: 42
+                  response:
+                    type: string
+                    description: AI assistant's natural language response
+                    example: "✅ Added task: Buy groceries"
+                  tool_calls:
+                    type: array
+                    description: MCP tools invoked by agent (for debugging/audit)
+                    items:
+                      type: object
+                      required:
+                        - tool
+                        - parameters
+                        - result
+                      properties:
+                        tool:
+                          type: string
+                          description: Name of MCP tool invoked
+                          enum:
+                            - add_task
+                            - get_tasks
+                            - update_task_status
+                            - delete_task
+                            - get_task_statistics
+                        parameters:
+                          type: object
+                          description: Parameters passed to tool
+                          additionalProperties: true
+                        result:
+                          type: object
+                          description: Result returned by tool
+                          additionalProperties: true
+              examples:
+                taskCreated:
+                  summary: Task created successfully
+                  value:
+                    conversation_id: 42
+                    response: "✅ Added task: Buy groceries"
+                    tool_calls:
+                      - tool: "add_task"
+                        parameters:
+                          user_id: "user_abc123"
+                          title: "Buy groceries"
+                        result:
+                          task_id: 5
+                          status: "created"
+                          title: "Buy groceries"
+                tasksList:
+                  summary: Tasks retrieved
+                  value:
+                    conversation_id: 42
+                    response: |
+                      You have 2 pending tasks:
+                      1. Buy groceries
+                      2. Call mom
+                    tool_calls:
+                      - tool: "get_tasks"
+                        parameters:
+                          user_id: "user_abc123"
+                          status: "pending"
+                        result:
+                          tasks:
+                            - id: 5
+                              title: "Buy groceries"
+                              status: "pending"
+                            - id: 6
+                              title: "Call mom"
+                              status: "pending"
+        '400':
+          description: Bad request (validation error)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                emptyMessage:
+                  summary: Empty message
+                  value:
+                    error: "Message cannot be empty"
+                    status_code: 400
+                messageTooLong:
+                  summary: Message exceeds max length
+                  value:
+                    error: "Message exceeds maximum length of 1000 characters"
+                    status_code: 400
+        '401':
+          description: Unauthorized (missing or invalid JWT token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Invalid or missing authentication token"
+                status_code: 401
+        '403':
+          description: Forbidden (user_id mismatch with JWT)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "User ID does not match authenticated user"
+                status_code: 403
+        '404':
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Conversation not found or does not belong to user"
+                status_code: 404
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Rate limit exceeded. Please try again later."
+                status_code: 429
+        '500':
+          description: AI service unavailable or internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                aiServiceDown:
+                  summary: OpenAI API failure
+                  value:
+                    error: "I'm experiencing technical difficulties right now. Please try again in a moment. Your message has been saved."
+                    status_code: 500
+                databaseError:
+                  summary: Database error
+                  value:
+                    error: "Internal server error. Please try again later."
+                    status_code: 500
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token from Better Auth (Phase II authentication)
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - error
+        - status_code
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        status_code:
+          type: integer
+          description: HTTP status code
+        details:
+          type: object
+          description: Additional error details (optional)
+          additionalProperties: true
+
+tags:
+  - name: Chat
+    description: AI chatbot conversation endpoints

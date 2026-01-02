@@ -1,0 +1,101 @@
+
+
+services:
+  # PostgreSQL Database (local development alternative to Neon)
+  db:
+    image: postgres:15-alpine
+    container_name: todo-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: todo_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend Service (Phase III: AI-Powered with Claude)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        # Use Python 3.11 to avoid SQLAlchemy compatibility issues with 3.14
+        PYTHON_VERSION: "3.11"
+    container_name: todo-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override DATABASE_URL to use local PostgreSQL container
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/todo_db
+      HOST: 0.0.0.0
+      PORT: 8000
+      # Allow both localhost and Docker network access
+      ALLOWED_ORIGINS: http://localhost:3000,http://frontend:3000
+      # Phase III: Claude AI Configuration
+      # NOTE: Set your actual API key in backend/.env
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-sk-ant-api03-xxxxxxxxxxxx}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-3-5-sonnet-20241022}
+      ANTHROPIC_MAX_TOKENS: ${ANTHROPIC_MAX_TOKENS:-2048}
+    volumes:
+      # Mount source code for hot reload
+      - ./backend:/app
+      # Exclude venv to avoid conflicts
+      - /app/.venv
+    depends_on:
+      db:
+        condition: service_healthy
+    # Use chat_with_tools server for Phase III features
+    command: uvicorn chat_with_tools:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Next.js Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: todo-frontend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env.local
+    environment:
+      # Override API URL to use Docker network
+      NEXT_PUBLIC_API_URL: http://backend:8000
+      # Frontend URL for Better Auth
+      BETTER_AUTH_URL: http://localhost:3000
+    volumes:
+      # Mount source code for hot reload
+      - ./frontend:/app
+      # Exclude node_modules to avoid conflicts
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    command: npm run dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  default:
+    name: todo-network

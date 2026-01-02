@@ -1,0 +1,373 @@
+---
+description: "Task list for Phase III: AI-Powered Todo Chatbot"
+---
+
+# Tasks: AI-Powered Todo Chatbot (Phase III)
+
+**Input**: Design documents from `/specs/003-ai-chatbot/`
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
+
+**Tests**: Tests are OPTIONAL - not requested in feature specification
+
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- Include exact file paths in descriptions
+
+## Path Conventions
+
+- **Web app**: `backend/src/`, `frontend/src/`
+- Paths shown below use monorepo structure from Phase II
+
+---
+
+## Phase 1: Setup (Shared Infrastructure)
+
+**Purpose**: Project initialization and dependency installation
+
+- [X] T001 Update backend/requirements.txt with Phase III dependencies (openai-agents-sdk, mcp-sdk, tenacity)
+- [X] T002 [P] Update frontend/package.json with ChatKit dependency (@openai/chatkit)
+- [X] T003 [P] Update .env.example with OPENAI_API_KEY and NEXT_PUBLIC_OPENAI_DOMAIN_KEY variables
+- [X] T004 Install backend dependencies via pip install -r backend/requirements.txt
+- [X] T005 [P] Install frontend dependencies via npm install in frontend directory
+
+---
+
+## Phase 2: Foundational (Blocking Prerequisites)
+
+**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+### Database Models & Migrations
+
+- [X] T006 Create Conversation SQLModel in backend/models/conversation.py with indexes and relationships
+- [X] T007 [P] Create Message SQLModel in backend/models/message.py with MessageRole enum and indexes
+- [X] T008 Update backend/models/__init__.py to export Conversation and Message models
+- [X] T009 Generate Alembic migration for conversations table in backend/alembic/versions/
+- [X] T010 Generate Alembic migration for messages table with message_role enum in backend/alembic/versions/
+- [~] T011 Run migrations locally via alembic upgrade head and verify tables created
+- [ ] T012 Test conversation and message creation with sample data to verify relationships
+
+### MCP Tools Implementation
+
+- [ ] T013 Create backend/mcp_tools/ directory structure with __init__.py
+- [ ] T014 Create backend/mcp_tools/schemas.py with JSON schemas for all 5 tools
+- [ ] T015 Implement add_task tool in backend/mcp_tools/task_tools.py with validation
+- [ ] T016 [P] Implement get_tasks tool in backend/mcp_tools/task_tools.py with status filtering
+- [ ] T017 [P] Implement update_task_status tool in backend/mcp_tools/task_tools.py
+- [ ] T018 [P] Implement delete_task tool in backend/mcp_tools/task_tools.py
+- [ ] T019 [P] Implement get_task_statistics tool in backend/mcp_tools/task_tools.py
+- [ ] T020 Create MCP tool registration mechanism in backend/mcp_tools/__init__.py
+- [ ] T021 Add tool registration to backend/main.py startup event handler
+- [ ] T022 Verify MCP tools registered successfully in backend logs (should show "Registered 5 MCP tools")
+
+### OpenAI Agents SDK Integration
+
+- [ ] T023 Create backend/services/agent_service.py with Agent initialization pattern (per-request)
+- [ ] T024 Implement system prompt for task management agent in backend/services/agent_service.py
+- [ ] T025 Implement conversation history loading with 50-message windowing in backend/services/conversation_service.py
+- [ ] T026 Implement error handling with retry logic using tenacity in backend/services/agent_service.py
+- [ ] T027 Create conversation management service in backend/services/conversation_service.py for create/update/get operations
+
+### Chat API Endpoint
+
+- [X] T028 Create backend/routers/chat.py with POST /api/{user_id}/chat endpoint
+- [ ] T029 Implement JWT authentication middleware for chat endpoint in backend/routers/chat.py
+- [ ] T030 Implement request validation (message length, conversation_id) in backend/routers/chat.py
+- [ ] T031 Implement conversation creation or continuation logic in backend/routers/chat.py
+- [ ] T032 Integrate agent_service with chat endpoint for message processing in backend/routers/chat.py
+- [ ] T033 Implement message persistence (user + assistant) in backend/routers/chat.py
+- [ ] T034 Implement error responses (400, 401, 403, 404, 429, 500) in backend/routers/chat.py
+- [X] T035 Register chat router in backend/main.py
+- [ ] T036 Test chat endpoint manually via curl or Postman with sample messages
+
+**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
+
+---
+
+## Phase 3: User Story 1 - Natural Language Task Creation (Priority: P1) 🎯 MVP
+
+**Goal**: Users can create tasks by chatting in natural language
+
+**Independent Test**: Send chat messages like "Add a task to buy groceries" and verify tasks created in database with correct attributes
+
+### Implementation for User Story 1
+
+- [ ] T037 [US1] Verify add_task MCP tool correctly parses task title from natural language in backend/mcp_tools/task_tools.py
+- [ ] T038 [US1] Verify add_task MCP tool handles task description extraction from messages like "with details: X" in backend/mcp_tools/task_tools.py
+- [ ] T039 [US1] Update agent system prompt to handle task creation intents in backend/services/agent_service.py
+- [ ] T040 [US1] Test agent with "Add a task to buy groceries" and verify add_task tool invoked correctly
+- [ ] T041 [US1] Test agent with multiple task creation ("Add buy milk, call dentist, and finish report")
+- [ ] T042 [US1] Test agent with ambiguous input ("milk") and verify clarifying question asked
+- [ ] T043 [US1] Verify AI response confirms task creation with "✅ Added task: {title}" format
+
+**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
+
+---
+
+## Phase 4: User Story 2 - Conversational Task Retrieval (Priority: P1)
+
+**Goal**: Users can ask about their tasks in natural language
+
+**Independent Test**: Create sample tasks, query via chat ("What's pending?"), verify correct task lists returned
+
+### Implementation for User Story 2
+
+- [ ] T044 [US2] Verify get_tasks MCP tool returns tasks filtered by status in backend/mcp_tools/task_tools.py
+- [ ] T045 [US2] Update agent system prompt to handle task retrieval intents ("show tasks", "what's pending") in backend/services/agent_service.py
+- [ ] T046 [US2] Test agent with "What's pending?" and verify get_tasks tool invoked with status="pending"
+- [ ] T047 [US2] Test agent with "What have I completed?" and verify completed tasks returned
+- [ ] T048 [US2] Test agent with "Show my tasks" when no tasks exist and verify friendly message
+- [ ] T049 [US2] Test agent with 10+ tasks and verify grouped display (pending first, then completed)
+- [ ] T050 [US2] Verify AI response formats task lists with numbers and titles
+
+**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
+
+---
+
+## Phase 5: User Story 3 - Task Status Updates via Chat (Priority: P2)
+
+**Goal**: Users can mark tasks as complete or pending through conversational commands
+
+**Independent Test**: Create tasks, update status via chat ("Mark buy groceries as done"), verify database reflects changes
+
+### Implementation for User Story 3
+
+- [ ] T051 [US3] Verify update_task_status MCP tool correctly updates task status and sets completed_at timestamp in backend/mcp_tools/task_tools.py
+- [ ] T052 [US3] Update agent system prompt to handle status update intents ("mark as done", "complete task") in backend/services/agent_service.py
+- [ ] T053 [US3] Test agent with "Mark buy groceries as done" and verify task marked completed
+- [ ] T054 [US3] Test agent with "Mark task 42 as pending" and verify status reverted
+- [ ] T055 [US3] Test agent with fuzzy matching ("I finished the report") and verify correct task found
+- [ ] T056 [US3] Test agent with non-existent task and verify error message with suggestion
+- [ ] T057 [US3] Verify AI response confirms status change with "✅ Marked '{title}' as complete" format
+
+**Checkpoint**: All P1 and P2 user stories should now be independently functional
+
+---
+
+## Phase 6: User Story 4 - Task Deletion via Chat (Priority: P3)
+
+**Goal**: Users can delete tasks through natural language commands
+
+**Independent Test**: Create tasks, delete via chat ("Delete buy groceries task"), verify removal from database
+
+### Implementation for User Story 4
+
+- [ ] T058 [US4] Verify delete_task MCP tool permanently deletes task and returns confirmation in backend/mcp_tools/task_tools.py
+- [ ] T059 [US4] Update agent system prompt to handle deletion intents ("delete task", "remove task") in backend/services/agent_service.py
+- [ ] T060 [US4] Test agent with "Delete buy groceries task" and verify task deleted
+- [ ] T061 [US4] Test agent with "Remove task 42" and verify deletion by ID
+- [ ] T062 [US4] Test agent with bulk deletion ("Delete all completed tasks") and verify confirmation flow
+- [ ] T063 [US4] Test agent with non-existent task deletion and verify error message
+- [ ] T064 [US4] Verify AI response confirms deletion with "🗑️ Deleted task: {title}" format
+
+**Checkpoint**: All P1, P2, and first P3 user stories functional
+
+---
+
+## Phase 7: User Story 5 - Task Analytics and Progress Insights (Priority: P3)
+
+**Goal**: Users can ask about productivity and get task statistics
+
+**Independent Test**: Create various tasks with different statuses, query analytics, verify calculations correct
+
+### Implementation for User Story 5
+
+- [ ] T065 [US5] Verify get_task_statistics tool calculates completion rate correctly in backend/mcp_tools/task_tools.py
+- [ ] T066 [US5] Verify get_task_statistics tool counts tasks created/completed today in backend/mcp_tools/task_tools.py
+- [ ] T067 [US5] Update agent system prompt to handle analytics intents ("how am I doing", "show my stats") in backend/services/agent_service.py
+- [ ] T068 [US5] Test agent with "How am I doing?" and verify statistics displayed with emoji
+- [ ] T069 [US5] Test agent with "What's my progress today?" and verify daily stats shown
+- [ ] T070 [US5] Test agent with no tasks and verify encouraging message about starting
+- [ ] T071 [US5] Verify AI response formats statistics with completion rate percentage and motivational tone
+
+**Checkpoint**: All user stories should now be independently functional
+
+---
+
+## Phase 8: Frontend - ChatKit UI Integration
+
+**Purpose**: Implement chat user interface using OpenAI ChatKit
+
+- [X] T072 Create frontend/src/app/chat/page.tsx with chat page route
+- [ ] T073 [P] Create frontend/src/components/ChatInterface.tsx wrapping ChatKit component
+- [ ] T074 [P] Create frontend/src/components/MessageList.tsx for message history display
+- [ ] T075 [P] Create frontend/src/components/ChatInput.tsx for user input handling
+- [ ] T076 Create frontend/src/lib/chat-api.ts with API client for POST /api/{user_id}/chat
+- [ ] T077 Integrate Better Auth JWT token passing in chat API client in frontend/src/lib/chat-api.ts
+- [ ] T078 Implement conversation_id state management in frontend/src/components/ChatInterface.tsx
+- [ ] T079 Implement message history loading on page load in frontend/src/components/ChatInterface.tsx
+- [ ] T080 Implement typing indicators and loading states in frontend/src/components/ChatInterface.tsx
+- [ ] T081 Implement error handling and display for API failures in frontend/src/components/ChatInterface.tsx
+- [ ] T082 Add navigation link to chat page in frontend/src/app/layout.tsx or header component
+- [ ] T083 Test chat UI in browser with manual interaction (send messages, verify responses)
+
+---
+
+## Phase 9: Polish & Cross-Cutting Concerns
+
+**Purpose**: Improvements that affect multiple user stories
+
+- [ ] T084 [P] Update backend/README.md with Phase III setup instructions and dependencies
+- [ ] T085 [P] Update frontend/README.md with ChatKit setup and domain allowlist instructions
+- [ ] T086 [P] Update repository root README.md with Phase III overview and architecture diagram
+- [ ] T087 Add logging for tool invocations in backend/mcp_tools/task_tools.py (user_id, tool name, parameters)
+- [ ] T088 Add health check endpoint validation for MCP tools in backend/main.py
+- [ ] T089 Implement rate limiting on chat endpoint in backend/routers/chat.py (prevent abuse)
+- [ ] T090 Implement conversation history cleanup (archive old conversations > 90 days) in backend/services/conversation_service.py
+- [ ] T091 Add error tracking and monitoring integration (e.g., Sentry) in backend/main.py
+- [ ] T092 Verify stateless architecture by restarting backend mid-conversation and continuing chat
+- [ ] T093 Run quickstart.md validation steps from local development to production
+- [ ] T094 Update docker-compose.yml with Phase III environment variables and service configuration
+
+---
+
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies - can start immediately
+- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
+- **User Stories (Phase 3-7)**: All depend on Foundational phase completion
+  - User stories can then proceed in parallel (if staffed) or sequentially in priority order
+  - US1 (P1) → US2 (P1) → US3 (P2) → US4 (P3) → US5 (P3)
+- **Frontend (Phase 8)**: Can start after Foundational phase, benefits from at least one user story being complete for testing
+- **Polish (Phase 9)**: Depends on all desired user stories being complete
+
+### User Story Dependencies
+
+- **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
+- **User Story 2 (P1)**: Can start after Foundational (Phase 2) - Independent of US1 but easier to test with tasks from US1
+- **User Story 3 (P2)**: Can start after Foundational (Phase 2) - Benefits from US1/US2 for testing but independent
+- **User Story 4 (P3)**: Can start after Foundational (Phase 2) - Benefits from US1 for creating test tasks
+- **User Story 5 (P3)**: Can start after Foundational (Phase 2) - Benefits from US1-US4 for realistic stats
+
+### Within Each User Story
+
+- All MCP tools are implemented in Foundational phase
+- Each story primarily involves:
+  1. Verify tool works for that story's use case
+  2. Update agent system prompt for new intents
+  3. Test agent behavior end-to-end
+  4. Verify response formatting
+
+### Parallel Opportunities
+
+**Setup Phase**:
+- T002, T003, T005 can run in parallel with T001, T004
+
+**Foundational Phase**:
+- T007 can run parallel with T006 (different models)
+- T016-T019 can run in parallel (different MCP tools, same file - but independent functions)
+- After T022: All user story phases can start in parallel if team capacity allows
+
+**User Story Phases**:
+- Different user stories can be worked on in parallel by different team members
+- Within a story: Most tasks are sequential (verification → prompt update → testing)
+
+**Frontend Phase**:
+- T073, T074, T075 can run in parallel (different components)
+- T076-T083 depend on components being created
+
+**Polish Phase**:
+- T084, T085, T086, T087 can all run in parallel (different files/concerns)
+
+---
+
+## Parallel Example: Foundational Phase MCP Tools
+
+```bash
+# After T013-T014 complete, launch tool implementations in parallel:
+Task T015: add_task tool
+Task T016: get_tasks tool (parallel)
+Task T017: update_task_status tool (parallel)
+Task T018: delete_task tool (parallel)
+Task T019: get_task_statistics tool (parallel)
+
+# All 5 tools can be implemented simultaneously if using different developers
+# or AI coding assistants in parallel mode
+```
+
+---
+
+## Implementation Strategy
+
+### MVP First (User Story 1 + 2 Only)
+
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
+3. Complete Phase 3: User Story 1 (Natural Language Task Creation)
+4. Complete Phase 4: User Story 2 (Conversational Task Retrieval)
+5. Complete Phase 8: Frontend ChatKit UI
+6. **STOP and VALIDATE**: Test end-to-end (create tasks, view tasks via chat)
+7. Deploy/demo if ready
+
+**MVP Deliverable**: Users can create and view tasks through natural language chat interface
+
+### Incremental Delivery
+
+1. Complete Setup + Foundational → Foundation ready
+2. Add User Story 1 → Test independently → (Can demo task creation via chat)
+3. Add User Story 2 → Test independently → (Can demo full CRUD read via chat) ✅ **MVP READY**
+4. Add Frontend → Test UI → Deploy/Demo
+5. Add User Story 3 → Test independently → (Task updates via chat)
+6. Add User Story 4 → Test independently → (Task deletion via chat)
+7. Add User Story 5 → Test independently → (Analytics via chat) ✅ **FULL FEATURE COMPLETE**
+8. Each story adds value without breaking previous stories
+
+### Parallel Team Strategy
+
+With multiple developers:
+
+1. Team completes Setup + Foundational together
+2. Once Foundational is done:
+   - Developer A: User Story 1
+   - Developer B: User Story 2
+   - Developer C: User Story 3
+   - Developer D: Frontend (can start earlier, tests with mock data)
+3. Stories complete and integrate independently
+4. One developer handles Polish phase after all stories done
+
+---
+
+## Notes
+
+- [P] tasks = different files or independent functions, no dependencies
+- [Story] label maps task to specific user story for traceability
+- Each user story should be independently completable and testable
+- Tests are OPTIONAL - not included because not requested in specification
+- Commit after each completed user story (checkpoint)
+- Stop at any checkpoint to validate story independently
+- Foundational phase is critical - test thoroughly before proceeding to user stories
+- Frontend can start after Foundational, but benefits from having backend user stories to test against
+
+---
+
+## Task Summary
+
+**Total Tasks**: 94
+**Setup Phase**: 5 tasks
+**Foundational Phase**: 31 tasks (BLOCKING - must complete first)
+**User Story 1 (P1)**: 7 tasks
+**User Story 2 (P1)**: 7 tasks
+**User Story 3 (P2)**: 7 tasks
+**User Story 4 (P3)**: 7 tasks
+**User Story 5 (P3)**: 7 tasks
+**Frontend Phase**: 12 tasks
+**Polish Phase**: 11 tasks
+
+**Parallel Opportunities**: 15 tasks marked [P] can run in parallel
+**MVP Scope**: Phase 1 + Phase 2 + Phase 3 + Phase 4 + Phase 8 (first 50 tasks + frontend) = ~62 tasks for MVP
+
+**Independent Test Criteria**:
+- US1: Send "Add a task to buy groceries" → Verify task in database
+- US2: Send "What's pending?" → Verify task list returned
+- US3: Send "Mark buy groceries as done" → Verify status updated in database
+- US4: Send "Delete buy groceries" → Verify task removed from database
+- US5: Send "How am I doing?" → Verify statistics calculation correct
+
+**Suggested Implementation Order**: Setup → Foundational → US1 → US2 → Frontend → US3 → US4 → US5 → Polish

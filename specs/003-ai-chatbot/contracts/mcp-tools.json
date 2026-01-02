@@ -1,0 +1,387 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MCP Tools Specification - Phase III",
+  "description": "Model Context Protocol tool definitions for task management operations. All tools are stateless and user-scoped.",
+  "version": "1.0.0",
+  "tools": [
+    {
+      "name": "add_task",
+      "description": "Create a new task for the user",
+      "stateless": true,
+      "inputSchema": {
+        "type": "object",
+        "required": ["user_id", "title"],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User identifier (authenticated user ID from JWT)",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional task description",
+            "maxLength": 1000,
+            "default": ""
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["task_id", "status", "title"],
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "ID of the created task"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["created"],
+            "description": "Confirmation status"
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title (echoed back)"
+          },
+          "description": {
+            "type": "string",
+            "description": "Task description (echoed back if provided)"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp when task was created"
+          }
+        }
+      },
+      "errorCases": [
+        {
+          "condition": "title is empty or whitespace-only",
+          "response": {
+            "error": "Title cannot be empty"
+          }
+        },
+        {
+          "condition": "title exceeds 200 characters",
+          "response": {
+            "error": "Title exceeds 200 character limit"
+          }
+        },
+        {
+          "condition": "description exceeds 1000 characters",
+          "response": {
+            "error": "Description exceeds 1000 character limit"
+          }
+        },
+        {
+          "condition": "database connection failure",
+          "response": {
+            "error": "Unable to save task. Please try again."
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_tasks",
+      "description": "Retrieve all tasks for the user with optional filtering by status",
+      "stateless": true,
+      "inputSchema": {
+        "type": "object",
+        "required": ["user_id"],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User identifier",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["all", "pending", "completed"],
+            "description": "Filter by task status",
+            "default": "all"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["tasks", "count"],
+        "properties": {
+          "tasks": {
+            "type": "array",
+            "description": "List of tasks matching filter",
+            "items": {
+              "type": "object",
+              "required": ["task_id", "title", "status", "created_at"],
+              "properties": {
+                "task_id": {
+                  "type": "integer",
+                  "description": "Task ID"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "Task title"
+                },
+                "description": {
+                  "type": "string",
+                  "description": "Task description (may be null)"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["pending", "completed"],
+                  "description": "Task status"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When task was created"
+                },
+                "completed_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When task was completed (null if pending)"
+                }
+              }
+            }
+          },
+          "count": {
+            "type": "integer",
+            "description": "Total number of tasks returned"
+          }
+        }
+      },
+      "errorCases": [
+        {
+          "condition": "status parameter is invalid",
+          "response": {
+            "error": "Status must be 'pending', 'completed', or 'all'"
+          }
+        },
+        {
+          "condition": "database connection failure",
+          "response": {
+            "error": "Unable to retrieve tasks. Please try again."
+          }
+        }
+      ]
+    },
+    {
+      "name": "update_task_status",
+      "description": "Mark a task as completed or revert to pending",
+      "stateless": true,
+      "inputSchema": {
+        "type": "object",
+        "required": ["user_id", "task_id", "status"],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User identifier",
+            "minLength": 1
+          },
+          "task_id": {
+            "type": "integer",
+            "description": "ID of task to update",
+            "minimum": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "completed"],
+            "description": "New status for the task"
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["task_id", "title", "status"],
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "ID of updated task"
+          },
+          "title": {
+            "type": "string",
+            "description": "Task title"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "completed"],
+            "description": "New task status"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When task was completed (null if reverted to pending)"
+          }
+        }
+      },
+      "errorCases": [
+        {
+          "condition": "task_id not found",
+          "response": {
+            "error": "Task not found"
+          }
+        },
+        {
+          "condition": "task belongs to different user",
+          "response": {
+            "error": "Task not found"
+          }
+        },
+        {
+          "condition": "status parameter is invalid",
+          "response": {
+            "error": "Status must be 'pending' or 'completed'"
+          }
+        },
+        {
+          "condition": "database connection failure",
+          "response": {
+            "error": "Unable to update task. Please try again."
+          }
+        }
+      ]
+    },
+    {
+      "name": "delete_task",
+      "description": "Permanently delete a task",
+      "stateless": true,
+      "inputSchema": {
+        "type": "object",
+        "required": ["user_id", "task_id"],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User identifier",
+            "minLength": 1
+          },
+          "task_id": {
+            "type": "integer",
+            "description": "ID of task to delete",
+            "minimum": 1
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["task_id", "title", "deleted"],
+        "properties": {
+          "task_id": {
+            "type": "integer",
+            "description": "ID of deleted task"
+          },
+          "title": {
+            "type": "string",
+            "description": "Title of deleted task (for confirmation)"
+          },
+          "deleted": {
+            "type": "boolean",
+            "const": true,
+            "description": "Confirmation flag"
+          },
+          "deleted_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When task was deleted"
+          }
+        }
+      },
+      "errorCases": [
+        {
+          "condition": "task_id not found",
+          "response": {
+            "error": "Task not found"
+          }
+        },
+        {
+          "condition": "task belongs to different user",
+          "response": {
+            "error": "Task not found"
+          }
+        },
+        {
+          "condition": "database connection failure",
+          "response": {
+            "error": "Unable to delete task. Please try again."
+          }
+        }
+      ]
+    },
+    {
+      "name": "get_task_statistics",
+      "description": "Get analytics and summary statistics for user's tasks",
+      "stateless": true,
+      "inputSchema": {
+        "type": "object",
+        "required": ["user_id"],
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "description": "User identifier",
+            "minLength": 1
+          }
+        }
+      },
+      "outputSchema": {
+        "type": "object",
+        "required": ["total_tasks", "pending_tasks", "completed_tasks", "completion_rate"],
+        "properties": {
+          "total_tasks": {
+            "type": "integer",
+            "description": "Total number of tasks",
+            "minimum": 0
+          },
+          "pending_tasks": {
+            "type": "integer",
+            "description": "Number of pending tasks",
+            "minimum": 0
+          },
+          "completed_tasks": {
+            "type": "integer",
+            "description": "Number of completed tasks",
+            "minimum": 0
+          },
+          "completion_rate": {
+            "type": "number",
+            "description": "Percentage of completed tasks (0.0 to 1.0)",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "tasks_created_today": {
+            "type": "integer",
+            "description": "Number of tasks created today",
+            "minimum": 0
+          },
+          "tasks_completed_today": {
+            "type": "integer",
+            "description": "Number of tasks completed today",
+            "minimum": 0
+          }
+        }
+      },
+      "errorCases": [
+        {
+          "condition": "database connection failure",
+          "response": {
+            "error": "Unable to retrieve statistics. Please try again."
+          }
+        }
+      ]
+    }
+  ],
+  "securityPrinciples": {
+    "userScoping": "All tools MUST filter operations by user_id. No cross-user data access permitted.",
+    "statelessDesign": "Tools MUST NOT maintain in-memory state between invocations. All data retrieved from database per request.",
+    "errorHandling": "Tools MUST return user-friendly error messages. Never expose internal errors, stack traces, or database details.",
+    "inputValidation": "All input parameters MUST be validated against schema before database operations."
+  },
+  "implementationNotes": {
+    "databaseQueries": "Use parameterized queries via SQLModel ORM to prevent SQL injection.",
+    "indexing": "Ensure user_id columns are indexed for fast filtering.",
+    "transactions": "Each tool operation should run in a database transaction for atomicity.",
+    "logging": "Log tool invocations with user_id, tool name, and parameters (exclude sensitive data)."
+  }
+}
