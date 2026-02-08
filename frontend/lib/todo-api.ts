@@ -2,7 +2,7 @@
  * Todo API client for the advanced todo management endpoints.
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_URL = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000";
 
 export interface TodoItem {
   id: string;

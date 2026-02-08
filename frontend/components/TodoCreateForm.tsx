@@ -28,15 +28,14 @@ export default function TodoCreateForm({ onCreated }: Props) {
     try {
       const data: CreateTodoRequest = {
         title: title.trim(),
-        description: description.trim() || undefined,
         priority,
-        due_date: dueDate || undefined,
-        tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
         is_recurring: isRecurring,
-        recurrence_pattern: isRecurring ? recurrencePattern : undefined,
-        recurrence_interval: isRecurring ? recurrenceInterval : undefined,
         reminder_enabled: reminderEnabled,
-        reminder_offset_hours: reminderEnabled ? reminderHours : undefined,
+        ...(description.trim() ? { description: description.trim() } : {}),
+        ...(dueDate ? { due_date: dueDate } : {}),
+        ...(tags ? { tags: tags.split(",").map((t) => t.trim()).filter(Boolean) } : {}),
+        ...(isRecurring ? { recurrence_pattern: recurrencePattern, recurrence_interval: recurrenceInterval } : {}),
+        ...(reminderEnabled ? { reminder_offset_hours: reminderHours } : {}),
       };
       await createTodo(data);
       setTitle("");

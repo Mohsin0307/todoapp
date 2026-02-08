@@ -36,7 +36,7 @@ export async function sendChatMessage(
   conversationId?: number | null,
   token?: string
 ): Promise<ChatResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const apiUrl = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000";
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -77,7 +77,7 @@ export async function getConversationHistory(
   conversationId: number,
   token?: string
 ): Promise<ChatMessage[]> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const apiUrl = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000";
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -126,7 +126,9 @@ export function getCurrentUserId(): string {
   }
 
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
+    const parts = token.split(".");
+    if (!parts[1]) return "demo-user";
+    const payload = JSON.parse(atob(parts[1]));
     return payload.sub || "demo-user";
   } catch {
     return "demo-user";

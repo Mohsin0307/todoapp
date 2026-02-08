@@ -1,8 +1,13 @@
 "use client";
 
+interface FilterState {
+  status?: string | undefined;
+  priority?: string | undefined;
+}
+
 interface Props {
-  filters: { status?: string; priority?: string };
-  onFilterChange: (filters: { status?: string; priority?: string }) => void;
+  filters: FilterState;
+  onFilterChange: (filters: FilterState) => void;
 }
 
 const statuses = ["", "pending", "in_progress", "completed", "cancelled"];

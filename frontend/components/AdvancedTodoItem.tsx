@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TodoItem, todoApi, UpdateTodoRequest } from "@/lib/todo-api";
+import { TodoItem, updateTodo, deleteTodo } from "@/lib/todo-api";
 
 interface Props {
   todo: TodoItem;
@@ -29,7 +29,7 @@ export default function AdvancedTodoItem({ todo, onUpdate, onDelete }: Props) {
   const handleStatusChange = async (newStatus: string) => {
     setLoading(true);
     try {
-      await todoApi.update(todo.id, { status: newStatus });
+      await updateTodo(todo.id, { status: newStatus });
       onUpdate();
     } catch (err) {
       console.error("Failed to update status:", err);
@@ -41,7 +41,7 @@ export default function AdvancedTodoItem({ todo, onUpdate, onDelete }: Props) {
   const handleDelete = async () => {
     setLoading(true);
     try {
-      await todoApi.delete(todo.id);
+      await deleteTodo(todo.id);
       onDelete();
     } catch (err) {
       console.error("Failed to delete:", err);

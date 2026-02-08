@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TodoItem, todoApi } from "@/lib/todo-api";
+import { TodoItem, fetchTodos as fetchTodosApi } from "@/lib/todo-api";
 import AdvancedTodoItem from "./AdvancedTodoItem";
 import TodoFilter from "./TodoFilter";
 
 export default function AdvancedTodoList() {
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState<{ status?: string; priority?: string }>({});
+  const [filters, setFilters] = useState<{ status?: string | undefined; priority?: string | undefined }>({});
 
   const fetchTodos = async () => {
     setLoading(true);
     try {
-      const data = await todoApi.list(filters);
+      const data = await fetchTodosApi(filters.status, filters.priority);
       setTodos(data);
     } catch (err) {
       console.error("Failed to fetch todos:", err);
