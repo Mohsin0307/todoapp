@@ -55,6 +55,9 @@ docker-compose up
 ## Active Technologies
 - Python 3.11+ (backend), TypeScript 5.x (frontend), Node.js 20+ (frontend runtime) (003-ai-chatbot)
 - Neon Serverless PostgreSQL (existing from Phase II), extended with Conversation and Message tables (003-ai-chatbot)
+- Python 3.11 (backend), TypeScript 5.x (frontend), Node.js 20+ (runtime) + FastAPI (backend), Next.js 16+ (frontend), SQLModel, Docker, Kubernetes, Helm (004-agent-architecture)
+- Neon Serverless PostgreSQL (external), Kubernetes Persistent Volumes (for state) (004-agent-architecture)
+- Python 3.11 (backend), TypeScript 5.x (frontend), Node.js 20+ (runtime) + FastAPI (backend), Next.js 16+ (frontend), SQLModel, Dapr, Kafka/Redpanda, Helm (005-cloud-deployment)
 
 ## Recent Changes
 - 003-ai-chatbot: Added Python 3.11+ (backend), TypeScript 5.x (frontend), Node.js 20+ (frontend runtime)

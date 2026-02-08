@@ -1,9 +1,14 @@
 """Chat API endpoint for AI-powered task management using Claude."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 import os
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+# Initialize rate limiter
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 
@@ -162,16 +167,21 @@ Please check:
 Get help at: https://docs.anthropic.com/"""
 
 @router.post("/{user_id}/chat", response_model=ChatResponse)
+@limiter.limit("30/minute")  # Rate limit: 30 requests per minute per IP
 async def chat(
     user_id: str,
-    request: ChatRequest
+    request: ChatRequest,
+    http_request: Request
 ):
     """
     Process chat message and return Claude AI response.
 
+    Rate limited to 30 requests per minute per IP address to prevent abuse.
+
     Args:
         user_id: User identifier
         request: Chat request with message and optional conversation_id
+        http_request: FastAPI Request object (for rate limiting)
 
     Returns:
         ChatResponse with Claude's reply

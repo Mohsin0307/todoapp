@@ -1,0 +1,83 @@
+# API Contract: Todo Chatbot Service Interface
+
+## Purpose
+Defines the interface contract between the Todo Chatbot frontend and backend services in the Kubernetes deployment.
+
+## Service Endpoints
+
+### Backend API Service
+- **Service Name**: `todo-chatbot-backend`
+- **Port**: `8000`
+- **Protocol**: HTTP/HTTPS
+
+### Frontend Service
+- **Service Name**: `todo-chatbot-frontend`
+- **Port**: `3000`
+- **Protocol**: HTTP/HTTPS
+
+## Health Check Endpoints
+
+### Backend Health Check
+- **Path**: `/health`
+- **Method**: `GET`
+- **Response**:
+  - `200 OK` with JSON payload: `{"status": "healthy", "timestamp": "ISO8601"}`
+  - `503 Service Unavailable` if unhealthy
+
+### Frontend Health Check
+- **Path**: `/api/health`
+- **Method**: `GET`
+- **Response**:
+  - `200 OK` with JSON payload: `{"status": "healthy", "backendConnected": boolean}`
+
+## Environment Variables Contract
+
+### Backend Service
+- `DATABASE_URL`: PostgreSQL connection string
+- `JWT_SECRET`: Secret for JWT token signing
+- `OPENAI_API_KEY`: API key for OpenAI integration
+- `BACKEND_PORT`: Port number for the backend service (default: 8000)
+
+### Frontend Service
+- `NEXT_PUBLIC_BACKEND_URL`: Base URL for backend API calls
+- `NEXT_PUBLIC_FRONTEND_PORT`: Port number for the frontend (default: 3000)
+
+## Resource Requirements Contract
+
+### Backend Deployment
+- **CPU Request**: 100m
+- **CPU Limit**: 500m
+- **Memory Request**: 128Mi
+- **Memory Limit**: 512Mi
+
+### Frontend Deployment
+- **CPU Request**: 50m
+- **CPU Limit**: 250m
+- **Memory Request**: 64Mi
+- **Memory Limit**: 256Mi
+
+## Configuration Contract
+
+### Backend ConfigMap
+- `config.json`: Application configuration file
+- `logging.conf`: Logging configuration
+- `cors_origins`: Allowed origins for CORS
+
+### Frontend ConfigMap
+- `runtime-env.json`: Runtime environment configuration
+- `public-config.json`: Public-facing configuration
+
+## Security Contract
+
+### Network Policies
+- Backend service only accepts connections from frontend and database
+- Frontend service accepts connections from external clients and backend
+
+### RBAC Requirements
+- Service accounts for each deployment
+- Role-based access to Kubernetes secrets for configuration
+
+## Scaling Contract
+- Horizontal Pod Autoscaler enabled for both services
+- Scale based on CPU utilization (70% threshold)
+- Minimum 1 replica, maximum 10 replicas

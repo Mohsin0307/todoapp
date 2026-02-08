@@ -54,20 +54,8 @@ class LoginRequest(BaseModel):
 class AuthResponse(BaseModel):
     """Response schema for successful authentication."""
     user: dict
+    token: str
     message: str
-
-    model_config = {
-        "json_schema_extra": {
-            "example": {
-                "user": {
-                    "id": "123e4567-e89b-12d3-a456-426614174000",
-                    "email": "user@example.com",
-                    "name": "John Doe"
-                },
-                "message": "Authentication successful"
-            }
-        }
-    }
 
 
 # ============================================================================
@@ -83,13 +71,7 @@ async def signup(
     """
     Register a new user account.
 
-    **Request Body**: SignupRequest with email, password, and name
-
-    **Returns**: User object and sets JWT token in httpOnly cookie
-
-    **Errors**:
-    - 400: Email already registered
-    - 422: Validation error (invalid email, password too short, etc.)
+    Returns: User object, JWT token, and sets httpOnly cookie.
     """
     # Register user
     user = await AuthService.register_user(
@@ -120,6 +102,7 @@ async def signup(
             "email": user.email,
             "name": user.name
         },
+        token=token,
         message="Registration successful"
     )
 
@@ -133,12 +116,7 @@ async def login(
     """
     Login with email and password.
 
-    **Request Body**: LoginRequest with email and password
-
-    **Returns**: User object and sets JWT token in httpOnly cookie
-
-    **Errors**:
-    - 401: Invalid credentials
+    Returns: User object, JWT token, and sets httpOnly cookie.
     """
     # Authenticate user
     user = await AuthService.authenticate_user(
@@ -172,18 +150,14 @@ async def login(
             "email": user.email,
             "name": user.name
         },
+        token=token,
         message="Login successful"
     )
 
 
 @router.post("/logout")
 async def logout(response: Response) -> dict:
-    """
-    Logout by clearing the JWT token cookie.
-
-    **Returns**: Success message
-    """
-    # Clear the access_token cookie
+    """Logout by clearing the JWT token cookie."""
     response.delete_cookie(
         key="access_token",
         httponly=True,

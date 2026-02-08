@@ -1,0 +1,62 @@
+replicaCount: 1
+
+backend:
+  image:
+    repository: todo-backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    ENVIRONMENT: development
+
+frontend:
+  image:
+    repository: todo-frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: todo.local
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+        - path: /
+          pathType: Prefix
+          service: frontend
+
+dapr:
+  enabled: true
+  appId:
+    backend: todo-backend
+    frontend: todo-frontend
+
+secrets:
+  databaseUrl: ""
+  jwtSecret: ""
+  openaiApiKey: ""
+
+configmap:
+  appEnv: development

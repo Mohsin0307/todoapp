@@ -15,12 +15,11 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy dependency files
-COPY pyproject.toml ./
+COPY requirements.txt ./
 
 # Install Python dependencies
-# Use pip install with editable mode for development hot reload
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .

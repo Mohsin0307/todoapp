@@ -21,7 +21,7 @@ def upgrade() -> None:
     op.create_table(
         'conversations',
         sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.String(), nullable=False),
+        sa.Column('user_id', postgresql.UUID(), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
@@ -31,15 +31,15 @@ def upgrade() -> None:
     op.create_index('ix_conversations_user_id_created', 'conversations', ['user_id', 'created_at'], unique=False)
 
     # Create message_role enum type
-    message_role_enum = postgresql.ENUM('user', 'assistant', name='messagerole')
-    message_role_enum.create(op.get_bind())
+    message_role_enum = postgresql.ENUM('user', 'assistant', name='messagerole', create_type=False)
+    message_role_enum.create(op.get_bind(), checkfirst=True)
 
     # Create messages table
     op.create_table(
         'messages',
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('conversation_id', sa.Integer(), nullable=False),
-        sa.Column('user_id', sa.String(), nullable=False),
+        sa.Column('user_id', postgresql.UUID(), nullable=False),
         sa.Column('role', message_role_enum, nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
         sa.Column('created_at', sa.DateTime(), nullable=False),

@@ -1,8 +1,8 @@
 """
-Task Management Tools for Claude AI - Database-Backed Version
+Task Management Tools - Database-Backed Version
 
-These tools allow the Claude AI agent to interact with the task management system
-using Anthropic's tool use format with real database persistence.
+These tools allow the AI agent to interact with the task management system
+using OpenAI function calling with real database persistence.
 """
 
 from typing import List, Dict, Any, Optional
@@ -354,92 +354,6 @@ async def get_task_statistics_tool_db(
             "error": str(e),
             "message": f"❌ Failed to get statistics: {str(e)}"
         }
-
-
-def get_all_tools() -> List[Dict[str, Any]]:
-    """
-    Get all task tools in Anthropic's tool use format.
-
-    Returns:
-        List of tool definitions compatible with Claude
-    """
-    return [
-        {
-            "name": "add_task",
-            "description": "Create a new task with a title and optional description",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "title": {
-                        "type": "string",
-                        "description": "The task title (required)"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Optional task description or details"
-                    }
-                },
-                "required": ["title"]
-            }
-        },
-        {
-            "name": "get_tasks",
-            "description": "Get all tasks, optionally filtered by status (pending or completed)",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "status": {
-                        "type": "string",
-                        "enum": ["pending", "completed"],
-                        "description": "Filter tasks by status. Omit to get all tasks."
-                    }
-                },
-                "required": []
-            }
-        },
-        {
-            "name": "update_task_status",
-            "description": "Update a task's status to completed or pending",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "task_id": {
-                        "type": "string",
-                        "description": "The UUID of the task to update"
-                    },
-                    "status": {
-                        "type": "string",
-                        "enum": ["completed", "pending"],
-                        "description": "The new status for the task"
-                    }
-                },
-                "required": ["task_id", "status"]
-            }
-        },
-        {
-            "name": "delete_task",
-            "description": "Permanently delete a task",
-            "input_schema": {
-                "type": "object",
-                "properties": {
-                    "task_id": {
-                        "type": "string",
-                        "description": "The UUID of the task to delete"
-                    }
-                },
-                "required": ["task_id"]
-            }
-        },
-        {
-            "name": "get_task_statistics",
-            "description": "Get productivity statistics including total tasks, completion rate, and daily progress",
-            "input_schema": {
-                "type": "object",
-                "properties": {},
-                "required": []
-            }
-        }
-    ]
 
 
 # Tool handler mapping for execution (async version)

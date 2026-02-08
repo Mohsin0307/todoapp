@@ -1,26 +1,26 @@
 /**
- * Simple Auth Client for Demo Mode
- * Works with demo backend's mock authentication
+ * Auth Client - Handles user authentication with backend JWT
  */
 
-const API_BASE_URL = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8002"
+const API_BASE_URL = process.env["NEXT_PUBLIC_API_URL"] || "http://localhost:8000"
 
-interface AuthResponse {
-  user: {
-    id: string
-    email: string
-    name: string
-  }
-  session: {
-    token: string
-  }
+interface AuthUser {
+  id: string
+  email: string
+  name: string
 }
 
-// Store session in localStorage for demo
-function setSession(data: AuthResponse) {
+interface BackendAuthResponse {
+  user: AuthUser
+  token: string
+  message: string
+}
+
+// Store session in localStorage
+function setSession(user: AuthUser, token: string) {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('auth_token', data.session.token)
-    localStorage.setItem('auth_user', JSON.stringify(data.user))
+    localStorage.setItem('auth_token', token)
+    localStorage.setItem('auth_user', JSON.stringify(user))
   }
 }
 
@@ -41,15 +41,16 @@ function getSession() {
 
   return {
     token,
-    user: JSON.parse(userStr)
+    user: JSON.parse(userStr) as AuthUser
   }
 }
 
 export const signUp = {
   email: async ({ name, email, password }: { name: string; email: string; password: string }) => {
-    const response = await fetch(\`\${API_BASE_URL}/api/auth/sign-up/email\`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ name, email, password })
     })
 
@@ -58,17 +59,18 @@ export const signUp = {
       throw new Error(error.detail || 'Signup failed')
     }
 
-    const data: AuthResponse = await response.json()
-    setSession(data)
+    const data: BackendAuthResponse = await response.json()
+    setSession(data.user, data.token)
     return data
   }
 }
 
 export const signIn = {
   email: async ({ email, password }: { email: string; password: string }) => {
-    const response = await fetch(\`\${API_BASE_URL}/api/auth/sign-in/email\`, {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password })
     })
 
@@ -77,13 +79,21 @@ export const signIn = {
       throw new Error(error.detail || 'Login failed')
     }
 
-    const data: AuthResponse = await response.json()
-    setSession(data)
+    const data: BackendAuthResponse = await response.json()
+    setSession(data.user, data.token)
     return data
   }
 }
 
 export const signOut = async () => {
+  try {
+    await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+  } catch {
+    // Ignore network errors on logout
+  }
   clearSession()
 }
 

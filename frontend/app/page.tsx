@@ -15,6 +15,13 @@ export default function Home() {
 
         <div className="flex gap-4 items-center justify-center flex-wrap">
           <Link
+            href="/chat"
+            className="rounded-lg bg-blue-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-300"
+          >
+            🤖 Try AI Chat
+          </Link>
+
+          <Link
             href="/login"
             className="rounded-lg bg-primary-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-primary-700 focus:outline-none focus:ring focus:ring-primary-300"
           >

@@ -4,7 +4,7 @@ Conversation Service - Business Logic for Conversation and Message Management
 Provides CRUD operations for conversations and messages with user-scoped access.
 Implements conversation history windowing for AI context management.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 
 from fastapi import HTTPException, status
@@ -302,3 +302,77 @@ class ConversationService:
         else:
             # Create new conversation
             return await ConversationService.create_conversation(session, user_id)
+
+    @staticmethod
+    async def cleanup_old_conversations(
+        session: AsyncSession,
+        user_id: Optional[str] = None,
+        days_threshold: int = 90,
+        dry_run: bool = False
+    ) -> Dict[str, Any]:
+        """
+        Archive or delete conversations older than the specified threshold.
+
+        This cleanup method helps manage database size by removing stale conversations
+        that haven't been updated in a long time (default: 90 days).
+
+        Args:
+            session: Database session
+            user_id: Optional user ID to limit cleanup (None for all users)
+            days_threshold: Archive conversations not updated in this many days (default: 90)
+            dry_run: If True, only count conversations without deleting (default: False)
+
+        Returns:
+            Dict with cleanup statistics:
+                - conversations_found: Number of old conversations found
+                - conversations_deleted: Number actually deleted (0 if dry_run)
+                - cutoff_date: The cutoff date used for cleanup
+                - dry_run: Whether this was a dry run
+
+        Example:
+            # Dry run to see what would be deleted
+            stats = await ConversationService.cleanup_old_conversations(
+                session, user_id="demo-user", days_threshold=90, dry_run=True
+            )
+            print(f"Would delete {stats['conversations_found']} conversations")
+
+            # Actually delete old conversations
+            stats = await ConversationService.cleanup_old_conversations(
+                session, user_id="demo-user", days_threshold=90, dry_run=False
+            )
+        """
+        # Calculate cutoff date
+        cutoff_date = datetime.utcnow() - timedelta(days=days_threshold)
+
+        # Build query for old conversations
+        query = select(Conversation).where(
+            Conversation.updated_at < cutoff_date
+        )
+
+        # Filter by user if specified
+        if user_id is not None:
+            query = query.where(Conversation.user_id == user_id)
+
+        # Execute query
+        result = await session.execute(query)
+        old_conversations = result.scalars().all()
+
+        conversations_found = len(old_conversations)
+        conversations_deleted = 0
+
+        # Delete conversations if not dry run
+        if not dry_run:
+            for conversation in old_conversations:
+                await session.delete(conversation)
+                conversations_deleted += 1
+
+            await session.flush()
+
+        return {
+            "conversations_found": conversations_found,
+            "conversations_deleted": conversations_deleted,
+            "cutoff_date": cutoff_date.isoformat(),
+            "days_threshold": days_threshold,
+            "dry_run": dry_run,
+            "user_id": user_id or "all_users"
+        }

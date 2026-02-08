@@ -1,7 +1,7 @@
 """
-Agent Service - Claude AI Integration with Tool Use
+Agent Service - OpenAI GPT Integration with Function Calling
 
-Manages Claude AI agent initialization, tool execution, and conversation management.
+Manages OpenAI agent initialization, tool execution, and conversation management.
 Implements stateless agent pattern with database-persisted conversation history.
 """
 import os
@@ -18,7 +18,6 @@ from src.models.message import MessageRole
 from mcp_tools.task_tools import get_all_tools
 from mcp_tools.task_tools_db import execute_tool_db
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -27,9 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 class AgentService:
-    """Service for Claude AI agent operations with tool use."""
+    """Service for OpenAI GPT agent operations with function calling."""
 
-    # System prompt for task management agent
     SYSTEM_PROMPT = """You are a helpful AI assistant for task management. You help users:
 - Create new tasks from natural language descriptions
 - View and filter their task lists
@@ -44,21 +42,43 @@ You have access to these tools:
 4. delete_task(task_id) - Delete a task
 5. get_task_statistics() - Get productivity stats
 
-Be concise, friendly, and use emojis appropriately. When users ask about tasks, use the appropriate tools to retrieve or modify data. Always confirm actions and provide helpful feedback.
+**Task Creation Guidelines:**
+- When users say "Add a task to [action]", extract the action as the title
+- For compound requests like "Add buy milk, call dentist, and finish report", create multiple tasks
+- If input is ambiguous (e.g., just "milk"), ask clarifying questions
+- After creating a task, respond with: "Added task: {title}"
 
-When a task is created, updated, or deleted, confirm the action clearly. When listing tasks, format them in a readable way with numbers. Be conversational and helpful!"""
+**Task Retrieval Guidelines:**
+- When users ask "What's pending?" or "Show pending tasks", call get_tasks with status="pending"
+- When users ask "What have I completed?", call get_tasks with status="completed"
+- When users ask "Show my tasks" or "List all tasks", call get_tasks without status parameter
+- Format task lists as numbered lists with task IDs, titles, and status
+
+**Task Status Update Guidelines:**
+- When users say "Mark [task name] as done/complete", first call get_tasks to find the task by title, then call update_task_status
+- Support fuzzy matching for task titles
+
+**Task Deletion Guidelines:**
+- When users say "Delete [task name]", first call get_tasks to find the task, then call delete_task
+- For bulk deletion, ask for confirmation first
+
+**Task Analytics Guidelines:**
+- When users ask "How am I doing?" or "Show my stats", call get_task_statistics
+- Format statistics clearly with percentages and counts
+
+Be concise, friendly, and use emojis appropriately. Always confirm actions clearly."""
 
     @staticmethod
-    def _get_anthropic_client():
-        """Get Anthropic client instance."""
+    def _get_openai_client():
+        """Get OpenAI client instance."""
         try:
-            from anthropic import Anthropic
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if not api_key or api_key.startswith("sk-ant-api03-xxx"):
+            from openai import OpenAI
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key or api_key == "your-openai-api-key-here":
                 return None
-            return Anthropic(api_key=api_key, default_headers={})
+            return OpenAI(api_key=api_key)
         except ImportError:
-            logger.error("Anthropic SDK not installed")
+            logger.error("OpenAI SDK not installed")
             return None
 
     @staticmethod
@@ -74,7 +94,7 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
         conversation_id: Optional[int] = None
     ) -> Tuple[str, int, List[str]]:
         """
-        Get response from Claude AI agent with tool execution.
+        Get response from OpenAI GPT agent with function calling.
 
         Args:
             session: Database session
@@ -84,9 +104,6 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
 
         Returns:
             Tuple of (response_text, conversation_id, tools_used)
-
-        Raises:
-            Exception: If API key not configured or API call fails
         """
         logger.info(f"Agent request: user_id={user_id} | conversation_id={conversation_id} | message='{user_message[:50]}...'")
 
@@ -100,8 +117,14 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
             session, conversation.id, user_id
         )
 
-        # Convert to Claude format
-        messages = ConversationService.messages_to_claude_format(history)
+        # Convert to OpenAI message format
+        messages = [{"role": "system", "content": AgentService.SYSTEM_PROMPT}]
+
+        for msg in history:
+            messages.append({
+                "role": msg.role.value if hasattr(msg.role, 'value') else msg.role,
+                "content": msg.content
+            })
 
         # Add current user message
         messages.append({"role": "user", "content": user_message})
@@ -112,14 +135,12 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
             MessageRole.USER, user_message
         )
 
-        # Get Anthropic client
-        client = AgentService._get_anthropic_client()
+        # Get OpenAI client
+        client = AgentService._get_openai_client()
         if not client:
-            # API not configured - return helpful message
             response_text = AgentService._get_fallback_response(user_message)
             tools_used = []
 
-            # Save assistant response
             await ConversationService.add_message(
                 session, conversation.id, user_id,
                 MessageRole.ASSISTANT, response_text
@@ -128,74 +149,72 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
 
             return (response_text, conversation.id, tools_used)
 
-        # Call Claude AI with tools
-        model = os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022")
-        max_tokens = int(os.getenv("ANTHROPIC_MAX_TOKENS", "2048"))
+        # Call OpenAI with function calling
+        model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
         tools = get_all_tools()
         tools_used = []
 
         try:
-            response = client.messages.create(
+            response = client.chat.completions.create(
                 model=model,
-                max_tokens=max_tokens,
-                system=AgentService.SYSTEM_PROMPT,
+                messages=messages,
                 tools=tools,
-                messages=messages
+                tool_choice="auto"
             )
 
+            message = response.choices[0].message
+
             # Process tool calls in loop
-            while response.stop_reason == "tool_use":
-                # Extract tool use block
-                tool_use_block = None
-                for block in response.content:
-                    if block.type == "tool_use":
-                        tool_use_block = block
-                        break
-
-                if not tool_use_block:
-                    break
-
-                tool_name = tool_use_block.name
-                tool_input = tool_use_block.input
-                tools_used.append(tool_name)
-
-                logger.info(f"Tool invocation: {tool_name} | params={tool_input}")
-
-                # Execute tool with database session
-                tool_result = await execute_tool_db(session, tool_name, tool_input, user_id)
-
-                logger.info(f"Tool result: {tool_name} | success={tool_result.get('success')}")
-
-                # Add assistant's tool use to conversation
+            while message.tool_calls:
+                # Add assistant message with tool calls to conversation
                 messages.append({
                     "role": "assistant",
-                    "content": response.content
+                    "content": message.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in message.tool_calls
+                    ]
                 })
 
-                # Add tool result
-                messages.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_block.id,
+                # Execute each tool call
+                for tool_call in message.tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_input = json.loads(tool_call.function.arguments)
+                    tools_used.append(tool_name)
+
+                    logger.info(f"Tool invocation: {tool_name} | params={tool_input}")
+
+                    # Execute tool with database session
+                    tool_result = await execute_tool_db(session, tool_name, tool_input, user_id)
+
+                    logger.info(f"Tool result: {tool_name} | success={tool_result.get('success')}")
+
+                    # Add tool result to messages
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call.id,
                         "content": json.dumps(tool_result)
-                    }]
-                })
+                    })
 
-                # Continue conversation with tool result
-                response = client.messages.create(
+                # Continue conversation with tool results
+                response = client.chat.completions.create(
                     model=model,
-                    max_tokens=max_tokens,
-                    system=AgentService.SYSTEM_PROMPT,
+                    messages=messages,
                     tools=tools,
-                    messages=messages
+                    tool_choice="auto"
                 )
 
+                message = response.choices[0].message
+
             # Extract final text response
-            response_text = ""
-            for block in response.content:
-                if hasattr(block, "text"):
-                    response_text += block.text
+            response_text = message.content or ""
 
             # Save assistant response to database
             await ConversationService.add_message(
@@ -203,7 +222,6 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
                 MessageRole.ASSISTANT, response_text
             )
 
-            # Commit all changes
             await session.commit()
 
             logger.info(f"Agent response: conversation_id={conversation.id} | tools_used={tools_used} | response_length={len(response_text)}")
@@ -214,10 +232,8 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
             logger.error(f"Agent error: {str(e)}")
             await session.rollback()
 
-            # Return error message
-            error_response = f"❌ I'm experiencing technical difficulties. Error: {str(e)[:100]}"
+            error_response = f"I'm experiencing technical difficulties. Error: {str(e)[:100]}"
 
-            # Try to save error message
             try:
                 await ConversationService.add_message(
                     session, conversation.id, user_id,
@@ -233,39 +249,32 @@ When a task is created, updated, or deleted, confirm the action clearly. When li
     def _get_fallback_response(user_message: str) -> str:
         """Get fallback response when API is not configured."""
         if any(word in user_message.lower() for word in ["add", "create", "new task"]):
-            return """✅ I can help you create tasks!
+            return """I can help you create tasks!
 
-**To activate Claude AI with tool capabilities:**
+**To activate AI capabilities:**
 
-1. Get your Anthropic API key from: https://console.anthropic.com/settings/keys
+1. Get your OpenAI API key from: https://platform.openai.com/api-keys
 2. Add it to `backend/.env`:
    ```
-   ANTHROPIC_API_KEY=sk-ant-api03-your-key-here
+   OPENAI_API_KEY=sk-your-key-here
    ```
 3. Restart the server
 
 Once configured, I'll be able to actually create, update, and manage your tasks!"""
 
         elif "help" in user_message.lower():
-            return """🤖 **Claude AI Todo Chatbot with Tools**
+            return """**AI Todo Chatbot with Tools**
 
-**Status**: Running in demo mode (Claude API not configured)
+**Status**: Running in demo mode (OpenAI API not configured)
 
 **What I can do (once API key is added)**:
-- ✅ Create tasks: "Add a task to buy groceries"
-- ✅ View tasks: "Show my pending tasks"
-- ✅ Update tasks: "Mark buy groceries as done"
-- ✅ Delete tasks: "Delete the groceries task"
-- ✅ Get stats: "How am I doing today?"
+- Create tasks: "Add a task to buy groceries"
+- View tasks: "Show my pending tasks"
+- Update tasks: "Mark buy groceries as done"
+- Delete tasks: "Delete the groceries task"
+- Get stats: "How am I doing today?"
 
-**Available Tools**:
-1. add_task - Create new tasks
-2. get_tasks - View your task list
-3. update_task_status - Mark tasks complete/pending
-4. delete_task - Remove tasks
-5. get_task_statistics - View productivity insights
-
-**Setup**: Add ANTHROPIC_API_KEY to backend/.env and restart server."""
+**Setup**: Add OPENAI_API_KEY to backend/.env and restart server."""
 
         else:
-            return f'💬 Message received: "{user_message}"\n\n⚠️ Claude API not configured. Add ANTHROPIC_API_KEY to backend/.env to enable AI features. Type "help" for more info.'
+            return f'Message received: "{user_message}"\n\nOpenAI API not configured. Add OPENAI_API_KEY to backend/.env to enable AI features. Type "help" for more info.'

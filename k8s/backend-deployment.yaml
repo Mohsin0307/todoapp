@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: todo-backend
+  namespace: todo-chatbot
+  labels:
+    app: todo-backend
+  annotations:
+    dapr.io/enabled: "true"
+    dapr.io/app-id: "todo-backend"
+    dapr.io/app-port: "8000"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: todo-backend
+  template:
+    metadata:
+      labels:
+        app: todo-backend
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "todo-backend"
+        dapr.io/app-port: "8000"
+    spec:
+      serviceAccountName: todo-chatbot-sa
+      containers:
+        - name: backend
+          image: todo-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              value: "development"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: todo-chatbot-secrets
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: todo-chatbot-secrets
+                  key: JWT_SECRET
+            - name: ALLOWED_ORIGINS
+              value: "http://todo.local,http://localhost:3000"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10

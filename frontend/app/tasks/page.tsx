@@ -48,12 +48,20 @@ export default function TasksPage() {
               Welcome back, {session.user?.name || session.user?.email}
             </p>
           </div>
-          <button
-            onClick={handleSignOut}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium transition hover:bg-gray-100 focus:outline-none focus:ring focus:ring-gray-200 dark:border-gray-600 dark:hover:bg-gray-800"
-          >
-            Sign Out
-          </button>
+          <div className="flex gap-2">
+            <a
+              href="/chat"
+              className="rounded-lg bg-blue-600 text-white px-4 py-2 text-sm font-medium transition hover:bg-blue-700 focus:outline-none focus:ring focus:ring-blue-200"
+            >
+              🤖 AI Chat
+            </a>
+            <button
+              onClick={handleSignOut}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium transition hover:bg-gray-100 focus:outline-none focus:ring focus:ring-gray-200 dark:border-gray-600 dark:hover:bg-gray-800"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
 
         {/* Task Form */}

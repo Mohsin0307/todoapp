@@ -33,7 +33,10 @@
       "Bash(docker-compose build:*)",
       "Bash(alembic upgrade:*)",
       "Bash(docker-compose ps:*)",
-      "Bash(pip:*)"
+      "Bash(pip:*)",
+      "Bash(kubectl version:*)",
+      "Bash(helm version:*)",
+      "Bash(docker build:*)"
     ]
   }
 }

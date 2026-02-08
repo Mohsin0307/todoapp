@@ -1,0 +1,15 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: todo-pubsub
+  namespace: todo-chatbot
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    - name: brokers
+      value: "redpanda-0.redpanda.kafka.svc.cluster.local:9093"
+    - name: authRequired
+      value: "false"
+    - name: consumerGroup
+      value: "todo-consumer-group"

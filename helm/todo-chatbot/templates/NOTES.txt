@@ -1,0 +1,19 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To access the application:
+
+1. Get the application URL:
+{{- if .Values.ingress.enabled }}
+  Visit http://{{ (index .Values.ingress.hosts 0).host }}
+{{- else }}
+  kubectl port-forward svc/{{ .Release.Name }}-frontend 3000:{{ .Values.frontend.service.port }}
+  Visit http://localhost:3000
+{{- end }}
+
+2. Check pod status:
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+3. View Dapr dashboard:
+  dapr dashboard -k

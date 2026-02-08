@@ -1,0 +1,815 @@
+openapi: 3.0.0
+info:
+  title: Todo Chatbot Event-Driven API
+  description: API for the event-driven Todo Chatbot application with advanced features
+  version: 1.0.0
+  contact:
+    name: Todo Chatbot Team
+    email: team@todo-chatbot.example.com
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.todo-chatbot.example.com
+    description: Production server
+
+paths:
+  /todos:
+    get:
+      summary: Get all todos for the authenticated user
+      description: Retrieves a paginated list of todos with optional filtering and sorting
+      tags:
+        - Todos
+      parameters:
+        - name: status
+          in: query
+          description: Filter todos by status
+          required: false
+          schema:
+            type: string
+            enum: [pending, in_progress, completed, cancelled]
+        - name: priority
+          in: query
+          description: Filter todos by priority
+          required: false
+          schema:
+            type: string
+            enum: [low, medium, high, urgent]
+        - name: tag
+          in: query
+          description: Filter todos by tag
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Search todos by title or description
+          required: false
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: Sort field (created_at, due_date, priority)
+          required: false
+          schema:
+            type: string
+            enum: [created_at, due_date, priority]
+        - name: order
+          in: query
+          description: Sort order (asc, desc)
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+        - name: page
+          in: query
+          description: Page number for pagination
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response with paginated todos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TodoItem'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+              example:
+                items:
+                  - id: 1
+                    title: "Complete project proposal"
+                    description: "Write and submit the project proposal"
+                    status: "pending"
+                    priority: "high"
+                    due_date: "2026-02-15T10:00:00Z"
+                    tags: ["work", "important"]
+                    created_at: "2026-02-05T14:30:00Z"
+                    updated_at: "2026-02-05T14:30:00Z"
+                    is_recurring: false
+                    reminder_enabled: true
+                    reminder_time: "2026-02-15T08:00:00Z"
+                total: 1
+                page: 1
+                limit: 20
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      summary: Create a new todo
+      description: Creates a new todo item with advanced features like recurrence and reminders
+      tags:
+        - Todos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTodoRequest'
+            example:
+              title: "Weekly team meeting"
+              description: "Attend the weekly team meeting"
+              priority: "medium"
+              due_date: "2026-02-12T09:00:00Z"
+              tags: ["meeting", "team"]
+              is_recurring: true
+              recurrence_pattern: "weekly"
+              recurrence_interval: 1
+              recurrence_end_date: "2026-12-31T23:59:59Z"
+              reminder_enabled: true
+              reminder_offset_hours: 2
+      responses:
+        '201':
+          description: Todo created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /todos/{id}:
+    get:
+      summary: Get a specific todo
+      description: Retrieves a specific todo item by ID
+      tags:
+        - Todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Todo ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Successful response with the todo item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      summary: Update a todo
+      description: Updates an existing todo item with new values
+      tags:
+        - Todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Todo ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTodoRequest'
+      responses:
+        '200':
+          description: Todo updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete a todo
+      description: Deletes a specific todo item by ID
+      tags:
+        - Todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Todo ID
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Todo deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /todos/{id}/complete:
+    post:
+      summary: Mark a todo as completed
+      description: Updates the status of a todo to completed and triggers relevant events
+      tags:
+        - Todos
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Todo ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Todo marked as completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TodoItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /notifications:
+    get:
+      summary: Get notifications for the user
+      description: Retrieves a paginated list of notifications for the authenticated user
+      tags:
+        - Notifications
+      parameters:
+        - name: type
+          in: query
+          description: Filter notifications by type
+          required: false
+          schema:
+            type: string
+            enum: [reminder, system, alert]
+        - name: is_read
+          in: query
+          description: Filter by read status
+          required: false
+          schema:
+            type: boolean
+        - name: page
+          in: query
+          description: Page number for pagination
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Successful response with notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      summary: Create a notification
+      description: Creates a new notification (admin only)
+      tags:
+        - Notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNotificationRequest'
+      responses:
+        '201':
+          description: Notification created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /events/stream:
+    get:
+      summary: Subscribe to event stream
+      description: Establishes a server-sent events connection to receive real-time events
+      tags:
+        - Events
+      responses:
+        '200':
+          description: Event stream connection established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  schemas:
+    TodoItem:
+      type: object
+      required:
+        - id
+        - title
+        - status
+        - priority
+        - user_id
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the todo
+          example: 1
+        title:
+          type: string
+          description: Title of the todo item
+          example: "Complete project proposal"
+        description:
+          type: string
+          description: Optional description of the todo
+          example: "Write and submit the project proposal"
+        status:
+          type: string
+          enum: [pending, in_progress, completed, cancelled]
+          description: Current status of the todo
+          example: "pending"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          description: Priority level of the todo
+          example: "high"
+        due_date:
+          type: string
+          format: date-time
+          description: Due date for the todo
+          example: "2026-02-15T10:00:00Z"
+        user_id:
+          type: integer
+          description: ID of the user who owns this todo
+          example: 1
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags associated with the todo
+          example: ["work", "important"]
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2026-02-05T14:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2026-02-05T14:30:00Z"
+        is_recurring:
+          type: boolean
+          description: Whether this is a recurring todo
+          example: false
+        recurrence_pattern:
+          type: string
+          enum: [daily, weekly, monthly, yearly]
+          description: Pattern for recurrence
+          example: "weekly"
+        recurrence_interval:
+          type: integer
+          description: Interval for recurrence (e.g., every 2 weeks)
+          example: 1
+        recurrence_end_date:
+          type: string
+          format: date-time
+          description: End date for recurrence
+          example: "2026-12-31T23:59:59Z"
+        reminder_enabled:
+          type: boolean
+          description: Whether a reminder is enabled
+          example: true
+        reminder_time:
+          type: string
+          format: date-time
+          description: Time when reminder should be sent
+          example: "2026-02-15T08:00:00Z"
+        reminder_offset_hours:
+          type: integer
+          description: Hours before due date to send reminder
+          example: 2
+        parent_id:
+          type: integer
+          description: ID of parent task if this is a sub-task
+          example: 1
+        depends_on_ids:
+          type: array
+          items:
+            type: integer
+          description: IDs of tasks this task depends on
+          example: [2, 3]
+
+    CreateTodoRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          description: Title of the todo item
+          example: "Complete project proposal"
+        description:
+          type: string
+          description: Optional description of the todo
+          example: "Write and submit the project proposal"
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          default: "medium"
+          description: Priority level of the todo
+        due_date:
+          type: string
+          format: date-time
+          description: Due date for the todo
+          example: "2026-02-15T10:00:00Z"
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags to associate with the todo
+          maxItems: 10
+          example: ["work", "important"]
+        is_recurring:
+          type: boolean
+          default: false
+          description: Whether this is a recurring todo
+        recurrence_pattern:
+          type: string
+          enum: [daily, weekly, monthly, yearly]
+          description: Pattern for recurrence (required if is_recurring is true)
+        recurrence_interval:
+          type: integer
+          minimum: 1
+          default: 1
+          description: Interval for recurrence (e.g., every 2 weeks)
+        recurrence_end_date:
+          type: string
+          format: date-time
+          description: End date for recurrence
+          example: "2026-12-31T23:59:59Z"
+        reminder_enabled:
+          type: boolean
+          default: false
+          description: Whether a reminder is enabled
+        reminder_offset_hours:
+          type: integer
+          minimum: 0
+          maximum: 168
+          default: 24
+          description: Hours before due date to send reminder
+        parent_id:
+          type: integer
+          description: ID of parent task if this is a sub-task
+        depends_on_ids:
+          type: array
+          items:
+            type: integer
+          description: IDs of tasks this task depends on
+
+    UpdateTodoRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          description: New title of the todo item
+        description:
+          type: string
+          description: New description of the todo
+        status:
+          type: string
+          enum: [pending, in_progress, completed, cancelled]
+          description: New status of the todo
+        priority:
+          type: string
+          enum: [low, medium, high, urgent]
+          description: New priority level of the todo
+        due_date:
+          type: string
+          format: date-time
+          description: New due date for the todo
+        tags:
+          type: array
+          items:
+            type: string
+          description: New tags to associate with the todo
+          maxItems: 10
+        is_recurring:
+          type: boolean
+          description: Whether this is a recurring todo
+        recurrence_pattern:
+          type: string
+          enum: [daily, weekly, monthly, yearly]
+          description: Pattern for recurrence
+        recurrence_interval:
+          type: integer
+          minimum: 1
+          description: Interval for recurrence (e.g., every 2 weeks)
+        recurrence_end_date:
+          type: string
+          format: date-time
+          description: End date for recurrence
+        reminder_enabled:
+          type: boolean
+          description: Whether a reminder is enabled
+        reminder_time:
+          type: string
+          format: date-time
+          description: Time when reminder should be sent
+        reminder_offset_hours:
+          type: integer
+          minimum: 0
+          maximum: 168
+          description: Hours before due date to send reminder
+
+    Notification:
+      type: object
+      required:
+        - id
+        - user_id
+        - type
+        - title
+        - message
+        - is_read
+        - is_delivered
+      properties:
+        id:
+          type: integer
+          description: Unique identifier for the notification
+          example: 1
+        user_id:
+          type: integer
+          description: ID of the user who receives this notification
+          example: 1
+        type:
+          type: string
+          enum: [reminder, system, alert]
+          description: Type of notification
+          example: "reminder"
+        title:
+          type: string
+          description: Title of the notification
+          example: "Task Due Soon"
+        message:
+          type: string
+          description: Content of the notification
+          example: "Your task 'Complete project proposal' is due tomorrow"
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+          default: "normal"
+          description: Priority level of the notification
+          example: "high"
+        target_users:
+          type: array
+          items:
+            type: integer
+          description: Additional users to receive this notification (for broadcasts)
+          example: [2, 3]
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2026-02-05T14:30:00Z"
+        scheduled_for:
+          type: string
+          format: date-time
+          description: When notification should be delivered
+          example: "2026-02-05T14:30:00Z"
+        sent_at:
+          type: string
+          format: date-time
+          description: When notification was sent
+          example: "2026-02-05T14:30:00Z"
+        read_at:
+          type: string
+          format: date-time
+          description: When notification was read by user
+          example: "2026-02-05T14:30:00Z"
+        is_read:
+          type: boolean
+          default: false
+          description: Whether notification has been read by user
+        is_delivered:
+          type: boolean
+          default: false
+          description: Whether notification has been delivered
+        delivery_method:
+          type: string
+          enum: [in_app, email, sms, push]
+          default: "in_app"
+          description: Method used to deliver the notification
+        todo_id:
+          type: integer
+          description: Associated todo item ID
+          example: 1
+        event_id:
+          type: string
+          description: Associated event ID
+          example: "event-12345"
+
+    CreateNotificationRequest:
+      type: object
+      required:
+        - user_id
+        - type
+        - title
+        - message
+      properties:
+        user_id:
+          type: integer
+          description: ID of the user who receives this notification
+        type:
+          type: string
+          enum: [reminder, system, alert]
+          description: Type of notification
+        title:
+          type: string
+          description: Title of the notification
+        message:
+          type: string
+          description: Content of the notification
+        priority:
+          type: string
+          enum: [low, normal, high, urgent]
+          default: "normal"
+          description: Priority level of the notification
+        scheduled_for:
+          type: string
+          format: date-time
+          description: When notification should be delivered
+        delivery_method:
+          type: string
+          enum: [in_app, email, sms, push]
+          default: "in_app"
+          description: Method used to deliver the notification
+        todo_id:
+          type: integer
+          description: Associated todo item ID
+
+    Event:
+      type: object
+      required:
+        - id
+        - type
+        - source
+        - timestamp
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the event
+          example: "event-12345"
+        type:
+          type: string
+          description: Type of event (e.g., todo.created, todo.updated)
+          example: "todo.created"
+        source:
+          type: string
+          description: Service that generated the event
+          example: "todo-service"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the event occurred
+          example: "2026-02-05T14:30:00Z"
+        correlation_id:
+          type: string
+          description: Correlation ID for tracing related events
+          example: "corr-abc123"
+        causation_id:
+          type: string
+          description: ID of the event that caused this event
+          example: "event-67890"
+        payload:
+          type: object
+          description: Event-specific data
+          example:
+            todo_id: 1
+            user_id: 1
+        user_id:
+          type: integer
+          description: Associated user ID
+          example: 1
+        todo_id:
+          type: integer
+          description: Associated todo item ID
+          example: 1
+
+  responses:
+    BadRequestError:
+      description: Bad request - invalid input
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    UnauthorizedError:
+      description: Unauthorized - authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ForbiddenError:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: Error message
+          example: "Invalid input provided"
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Todos
+    description: Operations related to todo items
+  - name: Notifications
+    description: Operations related to notifications
+  - name: Events
+    description: Operations related to events
+
+securitySchemes:
+  bearerAuth:
+    type: http
+    scheme: bearer
+    bearerFormat: JWT

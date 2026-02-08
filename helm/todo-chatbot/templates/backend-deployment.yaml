@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "todo-chatbot.fullname" . }}-backend
+  labels:
+    {{- include "todo-chatbot.labels" . | nindent 4 }}
+    {{- include "todo-chatbot.backend.selectorLabels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.dapr.enabled }}
+    dapr.io/enabled: "true"
+    dapr.io/app-id: {{ .Values.dapr.appId.backend | quote }}
+    dapr.io/app-port: {{ .Values.backend.service.port | quote }}
+    {{- end }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "todo-chatbot.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "todo-chatbot.backend.selectorLabels" . | nindent 8 }}
+      annotations:
+        {{- if .Values.dapr.enabled }}
+        dapr.io/enabled: "true"
+        dapr.io/app-id: {{ .Values.dapr.appId.backend | quote }}
+        dapr.io/app-port: {{ .Values.backend.service.port | quote }}
+        {{- end }}
+    spec:
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.backend.service.port }}
+              protocol: TCP
+          env:
+            - name: ENVIRONMENT
+              value: {{ .Values.backend.env.ENVIRONMENT | quote }}
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "todo-chatbot.fullname" . }}-secrets
+                  key: database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "todo-chatbot.fullname" . }}-secrets
+                  key: jwt-secret
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.service.port }}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.service.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10

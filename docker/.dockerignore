@@ -1,0 +1,61 @@
+# Dependencies
+node_modules
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env*
+.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+
+# Build outputs
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.cjs
+.next/
+.nuxt/
+.svelte-kit/
+output/
+out/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Git
+.git
+.gitignore
+
+# Testing
+coverage/
+.nyc_output/
+.jest/
+jest/
+
+# Secrets
+secrets/
+*.secret.yaml
+*.key
+*.crt
+*.pem

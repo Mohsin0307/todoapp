@@ -74,10 +74,13 @@ The chat interface is located at `/chat` route (`app/chat/page.tsx`).
 
 **Features**:
 - Real-time messaging with Claude AI
-- Message history display
-- Loading states and error handling
+- Conversation state management
+- Message history loading from database
+- JWT authentication with Better Auth
+- Loading states with typing indicators
+- Error handling with helpful messages
 - Responsive design
-- Markdown support for AI responses
+- Auto-scroll to latest message
 
 **Usage**:
 1. Navigate to http://localhost:3000/chat
@@ -91,105 +94,131 @@ User: "Add a task to buy groceries"
 AI: "✅ Created task: Buy groceries"
 
 User: "Show my pending tasks"
-AI: "You have 3 pending tasks:
-1. Buy groceries
-2. Call dentist
-3. Finish report"
+AI: "📋 Here are your pending tasks:
+1. [#1] Buy groceries (pending)
+2. [#2] Call dentist (pending)
+3. [#3] Finish report (pending)"
 
 User: "Mark buy groceries as done"
-AI: "✅ Marked 'Buy groceries' as complete"
+AI: "✅ Marked 'Buy groceries' as completed"
+
+User: "How am I doing?"
+AI: "📊 You're making great progress!
+
+Total tasks: 10
+Completed: 3 (30%)
+Pending: 7
+
+📅 Today: Created 2, Completed 1"
 ```
 
-### Chat Component Structure
+### Chat Component Architecture
+
+The chat interface is built with three modular components:
 
 ```typescript
-// app/chat/page.tsx
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  timestamp: Date;
+// app/chat/page.tsx - Minimal wrapper
+import ChatInterface from "@/components/ChatInterface";
+
+export default function ChatPage() {
+  return <ChatInterface />;
 }
 
-const [messages, setMessages] = useState<Message[]>([]);
-const [input, setInput] = useState("");
-const [loading, setLoading] = useState(false);
+// components/ChatInterface.tsx - Main controller
+// - Manages conversation state (messages, conversation_id)
+// - Handles API calls via chat-api.ts
+// - Loads message history on mount
+// - Integrates JWT authentication
+// - Renders MessageList and ChatInput
 
-const handleSubmit = async (e: React.FormEvent) => {
-  // Send message to backend
-  const response = await fetch("http://localhost:8001/api/demo-user/chat", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      message: input,
-      conversation_id: null
-    })
-  });
+// components/MessageList.tsx - Message display
+// - Renders messages with proper styling
+// - Auto-scrolls to latest message
+// - Shows typing indicator during loading
+// - Handles loading history state
 
-  const data = await response.json();
-  // Display AI response
-};
+// components/ChatInput.tsx - User input
+// - Input field with submit button
+// - Enter key support
+// - Loading state management
+// - Helpful tips display
 ```
 
 ### API Integration Guide
 
 #### Chat API Client
 
-Location: `lib/chat-api.ts` (to be created)
+Location: `lib/chat-api.ts`
+
+The chat API client provides type-safe functions for communicating with the backend:
 
 ```typescript
+import { sendChatMessage, getConversationHistory, getAuthToken, getCurrentUserId } from "@/lib/chat-api";
+
+// Send a message to Claude AI
+const response = await sendChatMessage(
+  getCurrentUserId(),      // User ID (from JWT or "demo-user")
+  "Add task to buy milk",  // User's message
+  conversationId,          // Optional: continue existing conversation
+  getAuthToken()           // Optional: JWT token for authentication
+);
+
+// Load previous conversation history
+const messages = await getConversationHistory(
+  getCurrentUserId(),
+  conversationId,
+  getAuthToken()
+);
+```
+
+**Key Functions**:
+
+- `sendChatMessage()` - Send user message and get AI response
+- `getConversationHistory()` - Load past messages for a conversation
+- `getAuthToken()` - Get JWT token from localStorage or Better Auth session
+- `getCurrentUserId()` - Get user ID from JWT or default to "demo-user"
+
+**Type Definitions**:
+
+```typescript
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
+
 export interface ChatRequest {
   message: string;
-  conversation_id?: number;
+  conversation_id?: number | null;
 }
 
 export interface ChatResponse {
   conversation_id: number;
   response: string;
   created_at: string;
-  tools_used?: string[];
-}
-
-export async function sendChatMessage(
-  userId: string,
-  request: ChatRequest,
-  token?: string
-): Promise<ChatResponse> {
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/${userId}/chat`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token && { Authorization: `Bearer ${token}` })
-      },
-      body: JSON.stringify(request)
-    }
-  );
-
-  if (!response.ok) {
-    throw new Error(`Chat API error: ${response.status}`);
-  }
-
-  return response.json();
 }
 ```
 
 #### Authentication Integration
 
+The chat API automatically handles authentication:
+
 ```typescript
-// Get JWT token from Better Auth
-import { auth } from "@/lib/auth";
+// In demo mode (no auth):
+// - Uses "demo-user" as userId
+// - No JWT token sent
 
-const session = await auth();
-const token = session?.accessToken;
-
-// Pass token to chat API
-const response = await sendChatMessage(
-  session.user.id,
-  { message: userInput },
-  token
-);
+// In authenticated mode:
+// - Decodes JWT token to get user_id
+// - Includes "Authorization: Bearer <token>" header
+// - Backend filters tasks by user_id from JWT
 ```
+
+**Demo Mode**:
+Chat works without authentication using "demo-user" as the default user ID. Perfect for testing!
+
+**Production Mode**:
+Integrate with Better Auth by storing JWT token in localStorage after login.
 
 ### Styling and Theming
 
@@ -282,52 +311,84 @@ npx shadcn-ui@latest add input
 
 ### Custom Components
 
-**MessageList** (to be created):
-```typescript
-// components/MessageList.tsx
-interface MessageListProps {
-  messages: Message[];
-}
+#### ChatInterface (`components/ChatInterface.tsx`)
 
-export function MessageList({ messages }: MessageListProps) {
-  return (
-    <div className="space-y-4 p-4 overflow-y-auto max-h-[60vh]">
-      {messages.map((msg, idx) => (
-        <MessageBubble key={idx} message={msg} />
-      ))}
-    </div>
-  );
+Main controller component that manages chat state and orchestrates MessageList and ChatInput.
+
+**Key Features**:
+- Conversation state management (messages, conversationId)
+- Message history loading from database
+- JWT token integration
+- Error handling with user-friendly messages
+- Real-time message updates
+
+**Props**:
+```typescript
+interface ChatInterfaceProps {
+  initialMessage?: string;  // Optional welcome message override
 }
 ```
 
-**ChatInput** (to be created):
+#### MessageList (`components/MessageList.tsx`)
+
+Displays chat messages with auto-scroll and loading indicators.
+
+**Key Features**:
+- Auto-scrolls to latest message
+- Typing indicator animation during loading
+- Loading history spinner
+- Responsive message bubbles
+- Timestamp display
+
+**Props**:
 ```typescript
-// components/ChatInput.tsx
+interface MessageListProps {
+  messages: ChatMessage[];
+  loading: boolean;
+  isLoadingHistory?: boolean;
+}
+```
+
+**Usage**:
+```typescript
+<MessageList
+  messages={messages}
+  loading={isAgentTyping}
+  isLoadingHistory={isLoadingHistory}
+/>
+```
+
+#### ChatInput (`components/ChatInput.tsx`)
+
+User input field with submit button and helpful tips.
+
+**Key Features**:
+- Enter key submission support
+- Loading state handling
+- Input validation
+- Helpful example prompts
+- Disabled state during loading
+
+**Props**:
+```typescript
 interface ChatInputProps {
-  onSubmit: (message: string) => void;
-  loading?: boolean;
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  loading: boolean;
+  placeholder?: string;
 }
+```
 
-export function ChatInput({ onSubmit, loading }: ChatInputProps) {
-  const [input, setInput] = useState("");
-
-  return (
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      onSubmit(input);
-      setInput("");
-    }}>
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        disabled={loading}
-        placeholder="Type a message..."
-        className="w-full px-4 py-2 border rounded-lg"
-      />
-    </form>
-  );
-}
+**Usage**:
+```typescript
+<ChatInput
+  value={input}
+  onChange={setInput}
+  onSubmit={handleSubmit}
+  loading={loading}
+  placeholder="Type your message..."
+/>
 ```
 
 ---

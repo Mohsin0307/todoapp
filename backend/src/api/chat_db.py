@@ -1,18 +1,22 @@
 """
-Chat API endpoint for AI-powered task management using Claude - Database-Backed Version
+Chat API endpoint for AI-powered task management using OpenAI GPT - Database-Backed Version
 
-This is the production-ready version with full database persistence and tool integration.
+Production-ready version with full database persistence and tool integration.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 import os
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from src.database import get_session
 from src.services.agent_service import AgentService
 from mcp_tools.task_tools import get_all_tools
+
+limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter()
 
@@ -20,7 +24,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     """Request model for chat endpoint."""
     message: str = Field(..., min_length=1, max_length=1000, description="User message")
-    conversation_id: Optional[int] = Field(None, description="Existing conversation ID (None for new conversation)")
+    conversation_id: Optional[int] = Field(None, description="Existing conversation ID")
 
 
 class ChatResponse(BaseModel):
@@ -32,35 +36,18 @@ class ChatResponse(BaseModel):
 
 
 @router.post("/{user_id}/chat", response_model=ChatResponse, tags=["chat"])
+@limiter.limit("30/minute")
 async def chat(
     user_id: str,
     request: ChatRequest,
+    http_request: Request,
     session: AsyncSession = Depends(get_session)
 ):
     """
-    Process chat message and return Claude AI response with tool execution (database-backed).
-
-    This endpoint:
-    1. Creates or retrieves a conversation
-    2. Loads conversation history (last 50 messages)
-    3. Sends message + history to Claude AI with tools
-    4. Executes any tools Claude decides to use
-    5. Persists user message and assistant response
-    6. Returns response with conversation_id
-
-    Args:
-        user_id: User identifier
-        request: Chat request with message and optional conversation_id
-        session: Database session (injected)
-
-    Returns:
-        ChatResponse with Claude's reply, conversation_id, and tools used
-
-    Raises:
-        HTTPException: 500 if agent service fails
+    Process chat message and return OpenAI GPT response with function calling (database-backed).
+    Rate limited to 30 requests per minute per IP address.
     """
     try:
-        # Call agent service with database session
         response_text, conversation_id, tools_used = await AgentService.get_agent_response(
             session=session,
             user_id=user_id,
@@ -76,7 +63,6 @@ async def chat(
         )
 
     except Exception as e:
-        # Log error and return 500
         import logging
         logging.error(f"Chat endpoint error: user_id={user_id} | error={str(e)}")
 
@@ -89,17 +75,12 @@ async def chat(
 @router.get("/health", tags=["health"])
 async def chat_health():
     """
-    Enhanced health check for chat service with database integration.
-
-    Validates:
-    - Claude AI configuration
-    - MCP tools registration
-    - Overall system status
+    Enhanced health check for chat service.
     """
     checks = {
         "status": "healthy",
-        "ai_provider": "Anthropic Claude",
-        "model": os.getenv("ANTHROPIC_MODEL", "claude-3-5-sonnet-20241022"),
+        "ai_provider": "OpenAI GPT",
+        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
         "api_configured": "unknown",
         "mcp_tools": "unknown",
         "tools_registered": 0,
@@ -108,15 +89,15 @@ async def chat_health():
         "message": ""
     }
 
-    # Check Claude API configuration
+    # Check OpenAI API configuration
     try:
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if api_key and not api_key.startswith("sk-ant-api03-xxx"):
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key and api_key != "your-openai-api-key-here":
             checks["api_configured"] = "ready"
         else:
             checks["api_configured"] = "not_configured"
             checks["status"] = "degraded"
-            checks["message"] = "Claude API key not configured"
+            checks["message"] = "OpenAI API key not configured"
     except Exception as e:
         checks["api_configured"] = "error"
         checks["status"] = "unhealthy"
@@ -125,10 +106,10 @@ async def chat_health():
     # Check MCP tools
     try:
         tools = get_all_tools()
-        if tools and len(tools) == 5:  # Expected 5 tools
+        if tools and len(tools) == 5:
             checks["mcp_tools"] = "ready"
             checks["tools_registered"] = len(tools)
-            checks["tool_names"] = [t["name"] for t in tools]
+            checks["tool_names"] = [t["function"]["name"] for t in tools]
         else:
             checks["mcp_tools"] = "incomplete"
             checks["status"] = "degraded"
@@ -138,21 +119,18 @@ async def chat_health():
         checks["status"] = "unhealthy"
         checks["message"] = f"Tool registration error: {str(e)}"
 
-    # Set final message if healthy
     if checks["status"] == "healthy":
-        checks["message"] = "Chat endpoint with database persistence and tool use ready"
-    elif checks["status"] == "degraded":
-        checks["message"] = checks.get("message", "Service partially operational")
+        checks["message"] = "Chat endpoint with database persistence and function calling ready"
 
     return checks
 
 
 @router.get("/tools", tags=["tools"])
 async def list_tools():
-    """List all available MCP tools."""
+    """List all available tools."""
     tools = get_all_tools()
     return {
         "count": len(tools),
         "tools": tools,
-        "note": "Tools are executed with database persistence"
+        "note": "Tools are executed with database persistence via OpenAI function calling"
     }

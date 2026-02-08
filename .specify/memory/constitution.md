@@ -1,21 +1,21 @@
 <!--
   Sync Impact Report:
-  - Version Change: 1.1.0 → 1.2.0
-  - Modified Sections: Phase II section materially expanded with complete deliverables, acceptance criteria, and implementation requirements
+  - Version Change: 1.3.0 → 1.4.0
+  - Modified Sections: Added new Phase V: Advanced Cloud Deployment section with five new principles (XVI-XX)
   - Added Content:
-    * Detailed Phase II acceptance criteria checklist
-    * Frontend deliverables (ChatKit UI, chat page, message handling)
-    * Backend deliverables (Chat endpoint, OpenAI Agents SDK, MCP server with 5 tools, Conversation & Message models)
-    * Specifications deliverables (MCP tool specs, agent behavior spec, chat API spec)
-    * Documentation deliverables (README, setup instructions, environment variables, testing guide)
-    * Tests deliverables (MCP tool tests, agent behavior tests, chat endpoint tests, stateless verification tests)
+    * XVI. Event-Driven Microservices Architecture (Kafka and Dapr usage)
+    * XVII. Cost-Effective Cloud Resource Utilization (free-tier resources)
+    * XVIII. Local-First Production Parity (Minikube/OKE testing before production)
+    * XIX. CI/CD and Observability Practices (monitoring, logging, CI/CD)
+    * XX. Phase V Agent Compliance (agent decision-making in cloud-native environments)
+    * Complete Phase V section with architecture overview and principles
   - Removed Sections: None
   - Templates Status:
     ✅ spec-template.md (reviewed, no changes needed - already compatible)
     ✅ plan-template.md (reviewed, no changes needed - Constitution Check section remains valid)
     ✅ tasks-template.md (reviewed, no changes needed - task discipline unchanged)
   - Follow-up TODOs: None - all placeholders resolved
-  - Bump Rationale: MINOR version bump (new section expansion) - Phase II content materially expanded with detailed deliverables and acceptance criteria
+  - Bump Rationale: MINOR version bump (new principles addition) - Added five new Phase V principles focusing on event-driven architecture, cloud deployment, and operational excellence
 -->
 
 # Evolution of Todo — Constitution
@@ -144,6 +144,74 @@
 - Performance budgets (latency, throughput, resource usage) MUST be documented when applicable.
 
 **Rationale**: Token efficiency reduces costs and improves iteration speed. Runtime performance ensures user experience quality and scalability.
+
+### X. Containerization Standards
+
+**Docker images MUST be minimal, reproducible, and secure.**
+
+- Container images MUST use minimal base images (e.g., Alpine Linux, distroless).
+- Images MUST NOT contain development tools, debug packages, or unnecessary dependencies.
+- Multi-stage builds MUST be used to separate build-time and runtime environments.
+- Container images MUST be scanned for security vulnerabilities before deployment.
+- Build processes MUST be reproducible — identical source produces identical images.
+
+**Rationale**: Minimal containers reduce attack surface, improve startup times, and decrease storage/network overhead. Reproducible builds ensure consistent deployments across environments.
+
+### XI. Kubernetes Reliability
+
+**Services MUST be designed for Kubernetes operational excellence.**
+
+- Services MUST be stateless where possible; state MUST be externalized to persistent volumes or external systems.
+- Pods MUST be restartable without data loss or configuration drift.
+- Health checks (liveness and readiness probes) MUST be implemented for all services.
+- Applications MUST handle SIGTERM gracefully and perform cleanup before shutdown.
+- Resource limits and requests MUST be specified to prevent resource contention.
+
+**Rationale**: Kubernetes-native applications achieve higher availability, better resource utilization, and seamless scaling. Proper lifecycle management ensures reliable rollouts and recovery.
+
+### XII. AI-Assisted DevOps
+
+**AI-enhanced tools MUST be prioritized over manual DevOps commands.**
+
+- kubectl-ai, kagent, and Docker AI tools MUST be used instead of manual kubectl/docker commands where available.
+- AI-powered infrastructure management tools MUST be preferred for complex operations.
+- Manual DevOps commands SHOULD only be used when AI tools are unavailable or insufficient.
+- Infrastructure operations MUST leverage AI for automation, monitoring, and troubleshooting.
+
+**Rationale**: AI-assisted DevOps reduces human error, accelerates operational tasks, and provides intelligent insights for infrastructure management. Automation through AI tools improves consistency and reliability.
+
+### XIII. Infrastructure as Specification
+
+**Kubernetes manifests and Helm charts MUST be generated from specifications, not handwritten.**
+
+- Infrastructure definitions MUST originate from specification artifacts using code generation.
+- Helm charts MUST be programmatically generated from infrastructure specifications.
+- Kubernetes YAML manifests MUST be treated as generated artifacts, not manually maintained files.
+- Infrastructure changes MUST flow through specification → generation → deployment pipeline.
+
+**Rationale**: Specification-driven infrastructure ensures consistency between intent and implementation. Generated manifests eliminate configuration drift and human error while maintaining auditability.
+
+### XIV. Observability and Debuggability
+
+**Infrastructure and applications MUST provide comprehensive observability for AI tools.**
+
+- Application logs MUST be structured (JSON format) and include correlation IDs for tracing.
+- Pod status, resource usage, and application metrics MUST be accessible via AI tools.
+- Logging and monitoring configurations MUST support AI-powered analysis and anomaly detection.
+- Diagnostic endpoints MUST provide sufficient information for AI tools to assess system health.
+
+**Rationale**: AI-powered observability enables faster incident response, predictive maintenance, and intelligent debugging. Structured observability data allows AI tools to identify patterns and anomalies humans might miss.
+
+### XV. Local-First Cloud-Native Development
+
+**Development environments MUST support local Kubernetes-like capabilities using Minikube.**
+
+- Local development MUST be possible using Minikube or similar local K8s solutions.
+- Developer workflows MUST mirror production Kubernetes deployment patterns.
+- Local environments MUST support the same containerization and configuration as production.
+- Development tools MUST integrate with local Kubernetes clusters for realistic testing.
+
+**Rationale**: Local-first Kubernetes development reduces environment drift, accelerates feedback loops, and enables developers to validate cloud-native patterns locally before deployment.
 
 ## Development Workflow
 
@@ -323,6 +391,86 @@ Wait for user consent; never auto-create ADRs.
 7. Update documentation and environment setup
 8. Validate acceptance criteria checklist
 
+## Phase V: Advanced Cloud Deployment
+
+**Goal**: Transition to scalable, event-driven microservices architecture with advanced cloud deployment capabilities using Kafka, Dapr, and production-grade Kubernetes.
+
+### Architecture Overview
+
+- **Event Streaming**: Apache Kafka for distributed messaging and event streaming
+- **Microservices Runtime**: Dapr (Distributed Application Runtime) for service-to-service communication, state management, and pub/sub patterns
+- **Orchestration**: Production-grade Kubernetes (AKS, GKE, OKE) with local testing via Minikube
+- **Cloud Resources**: Oracle Always Free tier and Redpanda Cloud free tier for cost-effective development
+- **CI/CD Pipeline**: Automated deployment pipeline with monitoring and logging integration
+- **Observability**: Centralized logging, metrics collection, and distributed tracing
+
+### Core Principles for Phase V
+
+#### XVI. Event-Driven Microservices Architecture
+
+**All services MUST support scalable, event-driven microservices architecture using Kafka and Dapr.**
+
+- Kafka MUST be used for distributed messaging, event streaming, and real-time data pipelines
+- Dapr MUST provide standardized building blocks for service discovery, state management, and pub/sub messaging
+- Services MUST be loosely coupled and independently deployable through event-driven patterns
+- Event schemas MUST be versioned and managed through a central schema registry
+- Asynchronous communication MUST be preferred over synchronous calls where possible
+- Backpressure and retry mechanisms MUST be implemented for resilient event processing
+
+**Rationale**: Event-driven architecture enables horizontal scaling, fault tolerance, and loose coupling between services. Kafka provides reliable message delivery while Dapr simplifies distributed system complexity with standardized patterns.
+
+#### XVII. Cost-Effective Cloud Resource Utilization
+
+**All deployments MUST utilize free-tier cloud resources (Oracle Always Free, Redpanda Cloud free tier) for hackathon or learning purposes.**
+
+- Oracle Cloud Infrastructure (OCI) Always Free tier resources MUST be prioritized for compute, storage, and networking
+- Redpanda Cloud free tier MUST be used for Kafka-compatible event streaming services
+- Resource quotas MUST be monitored to avoid exceeding free-tier limits
+- Infrastructure as Code (IaC) templates MUST include cost estimation and quota awareness
+- Provisioning scripts MUST validate resource availability before deployment
+- Budget monitoring tools MUST be integrated to prevent unexpected charges
+
+**Rationale**: Cost-conscious development ensures hackathon sustainability while maximizing learning value. Free-tier resources provide production-level experience without financial barriers, enabling experimentation with enterprise-grade infrastructure.
+
+#### XVIII. Local-First Production Parity
+
+**Local testing MUST be implemented with Minikube or OKE before deploying to production-grade Kubernetes (AKS, GKE, OKE).**
+
+- Minikube MUST be configured to mirror production Kubernetes cluster settings
+- Local development environment MUST replicate production networking, storage, and security configurations
+- Service mesh patterns (istio, linkerd) MUST be tested locally before production deployment
+- End-to-end testing workflows MUST execute successfully in local Kubernetes clusters
+- Deployment manifests MUST be validated against both local and production targets
+- Developer productivity tools MUST support rapid iteration between local and cloud environments
+
+**Rationale**: Local-first development with production parity reduces environment drift, accelerates feedback loops, and ensures deployment confidence. Testing in local Kubernetes environments catches issues before production deployment.
+
+#### XIX. CI/CD and Observability Practices
+
+**Robust CI/CD pipelines with comprehensive monitoring and logging practices MUST be implemented.**
+
+- Continuous Integration pipelines MUST include automated testing, security scanning, and artifact validation
+- Deployment pipelines MUST implement blue-green or canary release strategies for zero-downtime deployments
+- Comprehensive monitoring MUST include application metrics, infrastructure metrics, and business KPIs
+- Centralized logging MUST aggregate logs from all services with structured formats and correlation IDs
+- Distributed tracing MUST provide end-to-end visibility across microservices boundaries
+- Alerting policies MUST be defined for critical thresholds and error conditions
+
+**Rationale**: Mature CI/CD practices ensure reliable, repeatable deployments while observability provides operational insights and incident response capabilities. Monitoring and logging are essential for maintaining service quality in complex distributed systems.
+
+#### XX. Phase V Agent Compliance
+
+**Phase V agents and skills MUST adhere to updated rules for decision-making in cloud-native environments.**
+
+- Agents MUST prioritize cost-effective resource selection when provisioning cloud infrastructure
+- Decision-making algorithms MUST consider event-driven architecture patterns when designing service interactions
+- Agent skills MUST include validation for Kafka/Dapr integration patterns
+- Automated deployment agents MUST verify compliance with local testing requirements before production promotion
+- Infrastructure agents MUST include budget constraints and resource quota monitoring
+- Agent decision logs MUST provide audit trails for cloud resource provisioning and scaling actions
+
+**Rationale**: Agents operating in Phase V environments must make decisions aligned with cloud-native principles, cost optimization, and operational excellence. Updated decision-making rules ensure agents contribute to system reliability and cost-effectiveness.
+
 ## Governance
 
 **This Constitution supersedes all other practices and preferences.**
@@ -349,4 +497,4 @@ Wait for user consent; never auto-create ADRs.
 - Agents MUST refuse to generate code that violates principles without explicit user override
 - Users MAY request principle waivers for specific features with documented justification
 
-**Version**: 1.2.0 | **Ratified**: 2025-12-29 | **Last Amended**: 2025-12-31
+**Version**: 1.4.0 | **Ratified**: 2025-12-29 | **Last Amended**: 2026-02-06

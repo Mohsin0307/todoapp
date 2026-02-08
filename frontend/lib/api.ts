@@ -34,25 +34,43 @@ class APIClient {
     this.baseURL = baseURL
   }
 
+  private getAuthToken(): string | null {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem('auth_token')
+  }
+
   private async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
+    const token = this.getAuthToken()
 
-    // Get token from Better Auth session (stored in httpOnly cookie)
-    // The cookie is automatically sent with requests
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string> || {}),
+    }
+
+    // Add JWT token to Authorization header
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`
+    }
 
     const response = await fetch(url, {
       ...options,
-      credentials: "include", // Include cookies in requests
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      credentials: "include",
+      headers,
     })
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired or invalid - clear session
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('auth_user')
+          window.location.href = '/login'
+        }
+      }
       const error = await response.json().catch(() => ({
         detail: response.statusText,
       }))

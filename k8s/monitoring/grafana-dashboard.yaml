@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "true"
+data:
+  todo-chatbot-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Todo Chatbot Overview",
+        "panels": [
+          {
+            "title": "Request Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_requests_total{job='todo-backend'}[5m])",
+                "legendFormat": "{{method}} {{path}}"
+              }
+            ]
+          },
+          {
+            "title": "Error Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "rate(http_errors_total{job='todo-backend'}[5m])",
+                "legendFormat": "{{status_code}}"
+              }
+            ]
+          },
+          {
+            "title": "Pod CPU Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(container_cpu_usage_seconds_total{namespace='todo-chatbot'}[5m])) by (pod)",
+                "legendFormat": "{{pod}}"
+              }
+            ]
+          },
+          {
+            "title": "Pod Memory Usage",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(container_memory_working_set_bytes{namespace='todo-chatbot'}) by (pod)",
+                "legendFormat": "{{pod}}"
+              }
+            ]
+          }
+        ]
+      }
+    }

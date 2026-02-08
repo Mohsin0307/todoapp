@@ -17,10 +17,10 @@
 
 ```bash
 # Create virtual environment
-python3.11 -m venv .venv
+
 
 # Activate virtual environment
-source .venv/Scripts/activate  # Windows Git Bash
+source   # Windows Git Bash
 source .venv/bin/activate      # Linux/Mac
 
 # Install dependencies
