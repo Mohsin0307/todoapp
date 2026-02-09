@@ -13,6 +13,9 @@ RUN npm ci
 # Copy application code
 COPY frontend/ .
 
+# Ensure public directory exists (not all projects have one)
+RUN mkdir -p public
+
 # Build the application
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
